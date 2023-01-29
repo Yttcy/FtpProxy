@@ -30,3 +30,6 @@
 *.exe
 *.out
 *.app
+
+#added by Yttcy
+/cmake-build-debug
