@@ -46,15 +46,11 @@ public:
 
     void WriteHandle();
 
-    void AddClient(int ctpSocket,const std::shared_ptr<Client>& client);
 
-    void DelClient(int ctpSocket);
 
-    void AddEventHandle(Task&& task);
+    void AddAsyncEventHandle(Task&& task);
 
-    void AddTransHandle(Trans&& trans);
-
-    void EraseClient(int sockfd);
+    void AddAsyncTransHandle(Trans&& trans);
 
     std::mutex& GetLock();
 
@@ -65,7 +61,6 @@ private:
     int epollFd_; //epoll专用的描述符
     int socketNum_; //epoll中的描述符数量
     std::unordered_map<int,std::shared_ptr<Event>> socketMappingToEvent_; //套接字到事件的映射
-    std::shared_ptr<std::unordered_map<int,std::shared_ptr<Client>>> clients_;
 };
 
 

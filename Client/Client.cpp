@@ -16,6 +16,10 @@ Client::Client() {
 
 }
 
+std::shared_ptr<Client> Client::GetClientPtr(){
+    return shared_from_this();
+}
+
 //这是客户端有命令到达
 void Client::CtpCmdReadCb(int sockfd){
 
@@ -29,7 +33,7 @@ void Client::CtpCmdReadCb(int sockfd){
         epoll_->EpollDelEvent(proxyToServerCmdSocketEvent_);
 
         close(sockfd);
-        close(clientToProxyCmdSocketEvent_->GetSocketFd());
+        close(proxyToServerCmdSocketEvent_->GetSocketFd());
 
         //这里还要删除对应的客户端保存的控制连接，也就是那个unordered_map
         //从客户端读到了内容，那么就处理
@@ -56,7 +60,7 @@ void Client::CtpCmdReadCb(int sockfd){
         //OK,将这个数据交给上层来处理，也就是这个线程对应的Epoll返回的时候来处理这个任务
         auto protoData = std::make_shared<SerializeProtoData>(MAGIC_CLIENT,TYPE_CMD,data);
 
-        Trans trans{[this](auto && PH1) { ProxyHandleData(std::forward<decltype(PH1)>(PH1)); },protoData};
+        Trans trans{[capture0 = GetClientPtr()](auto && PH1) { capture0->ProxyHandleData(std::forward<decltype(PH1)>(PH1)); },protoData};
 
         this->thread_->AddTransHandle(std::move(trans));
     }
@@ -75,7 +79,6 @@ void Client::PtsCmdReadCb(int sockfd){
         epoll_->EpollDelEvent(proxyToServerCmdSocketEvent_);
         close(sockfd);
         close(clientToProxyCmdSocketEvent_->GetSocketFd());
-        epoll_->EraseClient(sockfd);
         return;
     }
 
@@ -101,7 +104,7 @@ void Client::PtsCmdReadCb(int sockfd){
     //OK,将这个数据交给上层来处理，也就是这个线程对应的Epoll返回的时候来处理这个任务
     auto protoData = std::make_shared<SerializeProtoData>(MAGIC_SERVER,TYPE_STATUS,data);
 
-    Trans trans{[this](auto && PH1) { ProxyHandleData(std::forward<decltype(PH1)>(PH1)); },protoData};
+    Trans trans{[capture0 = GetClientPtr()](auto && PH1) { capture0->ProxyHandleData(std::forward<decltype(PH1)>(PH1)); },protoData};
 
     this->thread_->AddTransHandle(std::move(trans));
 }
@@ -113,16 +116,16 @@ void Client::ProxyListenDataReadCb(int sockfd) {
     if(pasv_mode == 1){
         int clientToProxyDataSocket = Utils::AcceptSocket(sockfd,nullptr,nullptr);        //client <-> proxy
         clientToProxyDataSocketEvent_ = std::make_shared<Event>(clientToProxyDataSocket);
-        clientToProxyDataSocketEvent_->SetReadHandle([this](auto && PH1) { CtpDataReadCb(std::forward<decltype(PH1)>(PH1)); });
+        clientToProxyDataSocketEvent_->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->CtpDataReadCb(std::forward<decltype(PH1)>(PH1)); });
 
         int proxyToServerDataSocket = Utils::ConnectToServer(serverIp_,serverDataPort_);
         proxyToServerDataSocketEvent_ = std::make_shared<Event>(proxyToServerDataSocket);
-        proxyToServerDataSocketEvent_->SetReadHandle([this](auto && PH1) { PtsDataReadCb(std::forward<decltype(PH1)>(PH1)); });
+        proxyToServerDataSocketEvent_->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->PtsDataReadCb(std::forward<decltype(PH1)>(PH1)); });
     }
     else if(pasv_mode == 2){    //主动模式,服务器连接过来了
         int proxyToServerDataSocket = Utils::AcceptSocket(proxyListenDataSocketEvent_->GetSocketFd(),nullptr,nullptr);        //proxy <-> server
         proxyToServerDataSocketEvent_ = std::make_shared<Event>(proxyToServerDataSocket);
-        proxyToServerDataSocketEvent_->SetReadHandle([this](auto && PH1) { PtsDataReadCb(std::forward<decltype(PH1)>(PH1)); });
+        proxyToServerDataSocketEvent_->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->PtsDataReadCb(std::forward<decltype(PH1)>(PH1)); });
 
         struct sockaddr_in cliaddr{};
         socklen_t clilen = sizeof(cliaddr);
@@ -135,7 +138,7 @@ void Client::ProxyListenDataReadCb(int sockfd) {
 
 
         clientToProxyDataSocketEvent_ = std::make_shared<Event>(clientToProxySocket);
-        clientToProxyDataSocketEvent_->SetReadHandle([this](auto && PH1) { CtpDataReadCb(std::forward<decltype(PH1)>(PH1)); });
+        clientToProxyDataSocketEvent_->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->CtpDataReadCb(std::forward<decltype(PH1)>(PH1)); });
     }else{
         PROXY_LOG_FATAL("unknown pasv_mode!!!");
     }
@@ -167,7 +170,7 @@ void Client::CtpDataReadCb(int sockfd){
         //OK,将这个数据交给上层来处理，也就是这个线程对应的Epoll返回的时候来处理这个任务
         auto protoData = std::make_shared<SerializeProtoData>(MAGIC_CLIENT,TYPE_DATA,data);
 
-        Trans trans{[this](auto && PH1) { ProxyHandleData(std::forward<decltype(PH1)>(PH1)); },protoData};
+        Trans trans{[capture0 = GetClientPtr()](auto && PH1) { capture0->ProxyHandleData(std::forward<decltype(PH1)>(PH1)); },protoData};
 
         this->thread_->AddTransHandle(std::move(trans));
     }
@@ -194,7 +197,7 @@ void Client::PtsDataReadCb(int sockfd){
         //OK,将这个数据交给上层来处理，也就是这个线程对应的Epoll返回的时候来处理这个任务
         auto protoData = std::make_shared<SerializeProtoData>(MAGIC_SERVER,TYPE_DATA,data);
 
-        Trans trans{[this](auto && PH1) { ProxyHandleData(std::forward<decltype(PH1)>(PH1)); },protoData};
+        Trans trans{[capture0 = GetClientPtr()](auto && PH1) { capture0->ProxyHandleData(std::forward<decltype(PH1)>(PH1)); },protoData};
 
         this->thread_->AddTransHandle(std::move(trans));
     }
@@ -246,7 +249,7 @@ int Client::ClientCmdHandle(char *cmd,char *param){
         int proxyListenDataSocket = Utils::BindAndListenSocket(0); //开启proxyListenDataSocket、bind（）、listen操作
         proxyDataPort_ = Utils::GetSockLocalPort(proxyListenDataSocket); //这个端口是代理服务器随机生成的
         proxyListenDataSocketEvent_ = std::make_shared<Event>(proxyListenDataSocket);
-        proxyListenDataSocketEvent_->SetReadHandle([this](auto && PH1) { ProxyListenDataReadCb(std::forward<decltype(PH1)>(PH1)); });
+        proxyListenDataSocketEvent_->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->ProxyListenDataReadCb(std::forward<decltype(PH1)>(PH1)); });
         epoll_->EpollAddEvent(proxyListenDataSocketEvent_);
         pasv_mode = 2;
 
@@ -358,11 +361,12 @@ int Client::ServerStatusHandle(char *cmd,char *param){
         case CMD_REIN_COUNT:
             break;
         case CMD_PORT_COUNT:
+            //命令是PROT，返回的状态码是227，那么就应该没有问题
             if(strcmp(cmd,"227") == 0){
                 pasv_mode = 1;
                 int proxyListenDataSocket = Utils::BindAndListenSocket(0); //开启proxyListenDataSocket、bind（）、listen操作
                 proxyListenDataSocketEvent_ = std::make_shared<Event>(proxyListenDataSocket);
-                proxyListenDataSocketEvent_->SetReadHandle([this](auto && PH1) { ProxyListenDataReadCb(std::forward<decltype(PH1)>(PH1)); });
+                proxyListenDataSocketEvent_->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->ProxyListenDataReadCb(std::forward<decltype(PH1)>(PH1)); });
                 //这是本地随机生成的端口号
                 proxyDataPort_ = Utils::GetSockLocalPort(proxyListenDataSocket);
 

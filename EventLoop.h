@@ -17,9 +17,10 @@ class MyThreadPool;
 
 class EventLoop {
 
-    friend class Client;
 public:
     explicit EventLoop();
+
+    void Init();
 
     void Start(); //事件环开始轮询
 

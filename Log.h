@@ -17,7 +17,7 @@ enum{
 
 void Proxy_SetLogLevel(int level);
 
-void Proxy_Log(int level, const char *file,long line, const char *format, ...);
+void Proxy_Log(int level, const char *file,long line,const char *format,...);
 
 
 #define PROXY_LOG_DEBUG(f, ...) Proxy_Log(PROXY_LOG_LEVEL_DEBUG, __FILE__, __LINE__, f, ## __VA_ARGS__)
@@ -29,10 +29,6 @@ void Proxy_Log(int level, const char *file,long line, const char *format, ...);
 #define PROXY_LOG_ERROR(f, ...) Proxy_Log(PROXY_LOG_LEVEL_ERROR, __FILE__, __LINE__, f, ## __VA_ARGS__)
 
 #define PROXY_LOG_FATAL(f, ...) Proxy_Log(PROXY_LOG_LEVEL_FATAL, __FILE__, __LINE__, f, ## __VA_ARGS__)
-
-
-void WriteDownloadInfo(std::string &s);
-
 
 
 #endif //FTP_PROXY_LOG_H

@@ -24,11 +24,11 @@ public:
     void AddEventHandle(Task&& task);
     void AddTransHandle(Trans&& trans);
     std::shared_ptr<Epoll> GetEpoll();
-    void Notify();
     std::mutex& GetLock();
 
 private:
     static void OnNotify(int sockfd);
+    void Notify();
 private:
     std::thread th_;
     int ioPipe_[2]{};

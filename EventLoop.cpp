@@ -16,10 +16,13 @@
 #include "PublicParameters.h"
 
 EventLoop::EventLoop()
-:epoll_(std::make_shared<Epoll>()),
-threadPool_(std::make_shared<MyThreadPool>())
 {
 
+}
+
+void EventLoop::Init() {
+    epoll_ = std::make_shared<Epoll>();
+    threadPool_ = std::make_shared<MyThreadPool>();
 }
 
 void EventLoop::Start(){
@@ -43,14 +46,14 @@ void EventLoop::Start(){
         socklen_t socklen = sizeof(clientaddr);
         int clientToProxyCmdSocket = Utils::AcceptSocket(listenCmdSocket, (struct sockaddr *)&clientaddr, &socklen);
         auto ctpCmdEvent = std::make_shared<Event>(clientToProxyCmdSocket);
-        ctpCmdEvent->SetReadHandle([capture0 = client.get()](auto && PH1) { capture0->CtpCmdReadCb(std::forward<decltype(PH1)>(PH1)); });
+        ctpCmdEvent->SetReadHandle([capture0 = client->GetClientPtr()](auto && PH1) { capture0->CtpCmdReadCb(std::forward<decltype(PH1)>(PH1)); });
         client->clientToProxyCmdSocketEvent_ = ctpCmdEvent;
 
 
-        //是代理服务器到ftp服务器的控制连接。当密码通过验证的时候才去连接服务器吗?
+        //是代理服务器到ftp服务器的控制连接。当密码通过验证的时候才去连接服务器吗，暂时先不改
         int proxyToServerCmdSocket = Utils::ConnectToServer(ServerIP,SERVER_CMD_PORT);
         auto ptsCmdEvent = std::make_shared<Event>(proxyToServerCmdSocket);
-        ptsCmdEvent->SetReadHandle([capture0 = client.get()](auto && PH1) { capture0->PtsCmdReadCb(std::forward<decltype(PH1)>(PH1)); });
+        ptsCmdEvent->SetReadHandle([capture0 = client->GetClientPtr()](auto && PH1){ capture0->PtsCmdReadCb(std::forward<decltype(PH1)>(PH1)); });
         client->proxyToServerCmdSocketEvent_ = ptsCmdEvent;
 
         //设置IP地址
@@ -70,15 +73,10 @@ void EventLoop::Start(){
             client1->epoll_ = next_thread->GetEpoll();
             client1->epoll_->EpollAddEvent(ctpCmdEvent);
             client1->epoll_->EpollAddEvent(ptsCmdEvent);
-            client1->epoll_->AddClient(clientToProxyCmdSocket,client1);
         };
 
-        {
-            std::lock_guard<std::mutex> lockGuard(next_thread->GetLock());
-            next_thread->AddEventHandle({task_func, client});
-        }
-        next_thread->Notify();
-
+        //现在这个AddEvent是线程安全的了
+        next_thread->AddEventHandle({task_func, client});
         PROXY_LOG_INFO("new client coming!!!");
     };
 
@@ -87,5 +85,5 @@ void EventLoop::Start(){
     epoll_->EpollAddEvent(event);
     epoll_->Dispatch();
 
-    //这里是事件环结束时需要进行的一些处理
+    //这里是事件环结束时需要进行的一些处理，暂时没有
 }

@@ -19,10 +19,10 @@ class TcpBuffer;
 
 //将哪些任务分配到其它线程中去呢
 typedef std::function<void(int)> Function;
-class Client {
+class Client :public std::enable_shared_from_this<Client>{
 public:
     explicit Client();
-
+    std::shared_ptr<Client> GetClientPtr();
 public:
 
     void CtpCmdReadCb(int sockfd); //客户端到代理服务器的控制连接回调
@@ -83,7 +83,4 @@ public:
 
 
 };
-
-
-
 #endif //FTP_PROXY_CLIENT_H

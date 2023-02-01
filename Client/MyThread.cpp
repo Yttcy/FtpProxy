@@ -24,7 +24,11 @@ void MyThread::Run() {
 }
 
 void MyThread::AddEventHandle(Task&& task) {
-    epoll_->AddEventHandle(std::forward<Task>(task));
+    {
+        std::lock_guard<std::mutex> lockGuard(epoll_->GetLock());
+        epoll_->AddEventHandle(std::forward<Task>(task));
+    }
+    Notify();
 }
 
 void MyThread::AddTransHandle(Trans &&trans) {

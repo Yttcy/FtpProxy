@@ -17,7 +17,6 @@ Epoll::Epoll():
 epollFd_(epoll_create(10)),
 eventhandle_(),
 transHandle_(),
-clients_(std::make_shared<std::unordered_map<int,std::shared_ptr<Client>>>()),
 socketNum_(0)
 {
     PROXY_LOG_INFO("epollfd is %d",epollFd_);
@@ -88,6 +87,7 @@ void Epoll::Dispatch(){
             continue;
         }
 
+        //不好改啊，如果这里的在读到客户端的断开的时候
         for(int i=0;i<nReady;++i){
             int sock = retEvent[i].data.fd;
             auto event = socketMappingToEvent_[sock];
@@ -124,25 +124,15 @@ void Epoll::WriteHandle(){
 
 }
 
-void Epoll::AddClient(int ctpSocket,const std::shared_ptr<Client>& client) {
-    clients_->insert({ctpSocket,client});
-}
 
-void Epoll::DelClient(int ctpSocket){
-    clients_->erase(ctpSocket);
-}
-
-void Epoll::AddEventHandle(Task&& task){
+void Epoll::AddAsyncEventHandle(Task&& task){
     eventhandle_.push_back(task);
 }
 
-void Epoll::AddTransHandle(Trans &&trans) {
+void Epoll::AddAsyncTransHandle(Trans &&trans) {
     transHandle_.push_back(trans);
 }
 
-void Epoll::EraseClient(int sockfd) {
-    clients_->erase(sockfd);
-}
 
 std::mutex& Epoll::GetLock() {
     return lock_;
