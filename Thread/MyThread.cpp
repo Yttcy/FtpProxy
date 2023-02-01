@@ -23,16 +23,16 @@ void MyThread::Run() {
     th_ = std::thread(std::bind(&Epoll::Dispatch,epoll_.get()));
 }
 
-void MyThread::AddEventHandle(Task&& task) {
+void MyThread::AddAsyncEventHandle(Task&& task) {
     {
         std::lock_guard<std::mutex> lockGuard(epoll_->GetLock());
-        epoll_->AddEventHandle(std::forward<Task>(task));
+        epoll_->AddAsyncEventHandle(std::forward<Task>(task));
     }
     Notify();
 }
 
-void MyThread::AddTransHandle(Trans &&trans) {
-    epoll_->AddTransHandle(std::forward<Trans>(trans));
+void MyThread::AddAsyncTransHandle(Trans &&trans) {
+    epoll_->AddAsyncTransHandle(std::forward<Trans>(trans));
 }
 
 void MyThread::Notify() {
@@ -40,9 +40,6 @@ void MyThread::Notify() {
     write(ioPipe_[1],&c,1);
 }
 
-std::mutex& MyThread::GetLock() {
-    return epoll_->GetLock();
-}
 
 void MyThread::OnNotify(int sockfd){
     char buf[1];

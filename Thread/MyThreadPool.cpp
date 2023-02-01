@@ -17,7 +17,7 @@ thNum_(THREAD_NUM)
     }
 }
 
-std::shared_ptr<MyThread> MyThreadPool::GetNext() {
+std::shared_ptr<MyThread> MyThreadPool::GetNextThread() {
     int next = id_ % thNum_;
     ++id_;
     return ths_[next];

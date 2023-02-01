@@ -23,7 +23,7 @@ socketNum_(0)
     assert(epollFd_ != -1);
 }
 
-int Epoll::EpollAddEvent(std::shared_ptr<Event>& event) {
+int Epoll::EpollAddEvent(std::shared_ptr<Event> event) {
 
     if(socketNum_ >= EPOLL_MAX_FD){
         PROXY_LOG_WARN("over the epoll's max socket num!");

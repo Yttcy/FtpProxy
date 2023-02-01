@@ -36,7 +36,7 @@ public:
     explicit Epoll();
 
     //向epoll添加套接字
-    int EpollAddEvent(std::shared_ptr<Event>& event);
+    int EpollAddEvent(std::shared_ptr<Event> event);
 
     //从epoll中删除套接字
     int EpollDelEvent(const std::shared_ptr<Event>& event);
@@ -45,8 +45,6 @@ public:
     void Dispatch();
 
     void WriteHandle();
-
-
 
     void AddAsyncEventHandle(Task&& task);
 

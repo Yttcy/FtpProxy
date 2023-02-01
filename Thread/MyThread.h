@@ -21,10 +21,9 @@ public:
 
     explicit MyThread();
     void Run();
-    void AddEventHandle(Task&& task);
-    void AddTransHandle(Trans&& trans);
+    void AddAsyncEventHandle(Task&& task);
+    void AddAsyncTransHandle(Trans&& trans);
     std::shared_ptr<Epoll> GetEpoll();
-    std::mutex& GetLock();
 
 private:
     static void OnNotify(int sockfd);

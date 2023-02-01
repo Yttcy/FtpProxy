@@ -20,10 +20,11 @@ class EventLoop {
 public:
     explicit EventLoop();
 
-    void Init();
-
     void Start(); //事件环开始轮询
 
+    int AddEvent(std::shared_ptr<Event>& event);
+
+    std::shared_ptr<MyThread> GetNextThread();
 
 private:
 

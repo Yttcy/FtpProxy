@@ -1,20 +1,17 @@
 #include "Log.h"
 #include "EventLoop.h"
+#include "Ftp.h"
 
 int main(){
     Proxy_SetLogLevel(PROXY_LOG_LEVEL_INFO);
 
-    std::list<int> queue;
-    queue.emplace_back(1);
-    queue.emplace_back(2);
-    queue.emplace_back(3);
-    queue.emplace_back(4);
 
     //初始化事件环
-    EventLoop eventLoop;
+    auto loop = std::make_shared<EventLoop>();
 
-    eventLoop.Init();
+    auto ftpProxy = std::make_shared<Ftp>();
+    ftpProxy->AddToLoop(loop);
 
-    eventLoop.Start();
+    loop->Start();
     return 0;
 }

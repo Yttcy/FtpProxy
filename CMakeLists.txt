@@ -1,15 +1,17 @@
 cmake_minimum_required(VERSION 3.16)
-project(FTP_Proxy)
+project(FtpProxy)
 
 set(CMAKE_CXX_STANDARD 17)
 
 
-aux_source_directory(Client COMPILER_FILE)
+aux_source_directory(Ftp COMPILER_FILE)
+aux_source_directory(Thread COMPILER_FILE)
 aux_source_directory(. COMPILER_FILE)
 
 include_directories(.)
-include_directories(./Client)
+include_directories(Ftp)
+include_directories(Thread)
 
-add_executable(FTP_Proxy ${COMPILER_FILE})
+add_executable(FtpProxy ${COMPILER_FILE})
 
-target_link_libraries(FTP_Proxy pthread)
+target_link_libraries(FtpProxy pthread)

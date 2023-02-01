@@ -10,7 +10,7 @@
 #include "Utils.h"
 #include "Log.h"
 #include "Proto.h"
-#include <MyThread.h>
+#include <Thread/MyThread.h>
 
 Client::Client() {
 
@@ -62,7 +62,7 @@ void Client::CtpCmdReadCb(int sockfd){
 
         Trans trans{[capture0 = GetClientPtr()](auto && PH1) { capture0->ProxyHandleData(std::forward<decltype(PH1)>(PH1)); },protoData};
 
-        this->thread_->AddTransHandle(std::move(trans));
+        this->thread_->AddAsyncTransHandle(std::move(trans));
     }
 
 }
@@ -106,7 +106,7 @@ void Client::PtsCmdReadCb(int sockfd){
 
     Trans trans{[capture0 = GetClientPtr()](auto && PH1) { capture0->ProxyHandleData(std::forward<decltype(PH1)>(PH1)); },protoData};
 
-    this->thread_->AddTransHandle(std::move(trans));
+    this->thread_->AddAsyncTransHandle(std::move(trans));
 }
 
 
@@ -172,7 +172,7 @@ void Client::CtpDataReadCb(int sockfd){
 
         Trans trans{[capture0 = GetClientPtr()](auto && PH1) { capture0->ProxyHandleData(std::forward<decltype(PH1)>(PH1)); },protoData};
 
-        this->thread_->AddTransHandle(std::move(trans));
+        this->thread_->AddAsyncTransHandle(std::move(trans));
     }
 }
 
@@ -199,7 +199,7 @@ void Client::PtsDataReadCb(int sockfd){
 
         Trans trans{[capture0 = GetClientPtr()](auto && PH1) { capture0->ProxyHandleData(std::forward<decltype(PH1)>(PH1)); },protoData};
 
-        this->thread_->AddTransHandle(std::move(trans));
+        this->thread_->AddAsyncTransHandle(std::move(trans));
     }
 }
 

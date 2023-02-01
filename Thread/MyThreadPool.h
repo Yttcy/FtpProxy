@@ -14,7 +14,7 @@ class MyThread;
 class MyThreadPool {
 public:
     explicit MyThreadPool();
-    std::shared_ptr<MyThread> GetNext();
+    std::shared_ptr<MyThread> GetNextThread();
 
 private:
     long id_;

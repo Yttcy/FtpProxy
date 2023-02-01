@@ -45,7 +45,6 @@ public:
     std::string userName_;
 
     int status_;
-
     //这个套接字对每个客户端都是唯一的
     int proxyListenCmdSocket_{};
 
