@@ -7,7 +7,7 @@
 
 #include "Epoll.h"
 #include "Event.h"
-#include "Log.h"
+#include "Util/Log.h"
 #include <Client.h>
 
 #define EPOLL_MAX_FD 1024
@@ -26,7 +26,7 @@ socketNum_(0)
 int Epoll::EpollAddEvent(std::shared_ptr<Event> event) {
 
     if(socketNum_ >= EPOLL_MAX_FD){
-        PROXY_LOG_WARN("over the epoll's max socket num!");
+        PROXY_LOG_WARN("over the epoll max socket num!");
         return -1;
     }
 

@@ -3,17 +3,12 @@
 //
 
 #include <memory>
-#include <unistd.h>
-#include <arpa/inet.h>
-
 #include "EventLoop.h"
-#include "Utils.h"
+#include "Util/Utils.h"
 #include "Client.h"
-#include "Log.h"
+#include "Util/Log.h"
 #include <Thread/MyThreadPool.h>
 #include <Thread/MyThread.h>
-
-#include "PublicParameters.h"
 
 EventLoop::EventLoop():
 epoll_(std::make_shared<Epoll>()),

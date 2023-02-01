@@ -7,8 +7,8 @@
 #include <netinet/in.h>
 
 #include "Client.h"
-#include "Utils.h"
-#include "Log.h"
+#include "Util/Utils.h"
+#include "Util/Log.h"
 #include "Proto.h"
 #include <Thread/MyThread.h>
 
