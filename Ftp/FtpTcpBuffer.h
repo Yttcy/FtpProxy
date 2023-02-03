@@ -7,12 +7,12 @@
 
 #include <string>
 
-class TcpBuffer {
+class FtpTcpBuffer {
 
 public:
-    explicit TcpBuffer();
+    explicit FtpTcpBuffer();
 
-    TcpBuffer& operator += (char *);
+    FtpTcpBuffer& operator += (char *);
 
     std::string GetCompleteCmd();
 

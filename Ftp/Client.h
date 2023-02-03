@@ -10,11 +10,11 @@
 #include <functional>
 
 #include "Epoll.h"
-#include "TcpBuffer.h"
+#include "FtpTcpBuffer.h"
 
 class MyThread;
 class SerializeProtoData;
-class TcpBuffer;
+class FtpTcpBuffer;
 
 
 //将哪些任务分配到其它线程中去呢
@@ -49,11 +49,13 @@ public:
     int proxyListenCmdSocket_{};
 
     //下面每个客户端都不是一样的了
-    std::shared_ptr<Event> clientToProxyCmdSocketEvent_;
-    std::shared_ptr<Event> proxyToServerCmdSocketEvent_;
-    std::shared_ptr<Event> proxyListenDataSocketEvent_;
-    std::shared_ptr<Event> clientToProxyDataSocketEvent_;
-    std::shared_ptr<Event> proxyToServerDataSocketEvent_;
+
+    int clientToProxyCmdSocket_;
+    int proxyToServerCmdSocket_;
+    int proxyListenDataSocket_;
+    int clientToProxyDataSocket_;
+    int proxyToServerDataSocket_;
+
 
     int lastCmdCount_{};
 
@@ -71,7 +73,7 @@ public:
     std::string proxyIp_;
     std::string serverIp_;
 
-    TcpBuffer buffer_;
+    FtpTcpBuffer buffer_;
 
     int pasv_mode{};
 

@@ -23,7 +23,7 @@ socketNum_(0)
     assert(epollFd_ != -1);
 }
 
-int Epoll::EpollAddEvent(std::shared_ptr<Event> event) {
+int Epoll::AddEvent(std::unique_ptr<Event> event) {
 
     if(socketNum_ >= EPOLL_MAX_FD){
         PROXY_LOG_WARN("over the epoll max socket num!");
@@ -43,18 +43,18 @@ int Epoll::EpollAddEvent(std::shared_ptr<Event> event) {
             break;
         }
         ++socketNum_;
-        socketMappingToEvent_[socketFd] = event;
-    }while(false);
+        socketMappingToEvent_[socketFd] = std::move(event);
+        }while(false);
 
     return ret;
 }
 
-int Epoll::EpollDelEvent(const std::shared_ptr<Event>& event) {
+int Epoll::DelEvent(int sockfd) {
 
     //从epoll中删除描述符
     int ret;
     do{
-        int socketFd = event->GetSocketFd();
+        int socketFd = sockfd;
         epoll_event epollEvent{};
         epollEvent.events |= EPOLLIN;
         ret = epoll_ctl(epollFd_,EPOLL_CTL_DEL,socketFd,&epollEvent);
@@ -87,31 +87,30 @@ void Epoll::Dispatch(){
             continue;
         }
 
-        //不好改啊，如果这里的在读到客户端的断开的时候
         for(int i=0;i<nReady;++i){
             int sock = retEvent[i].data.fd;
-            auto event = socketMappingToEvent_[sock];
-            event->Handle(retEvent[i]);
+            if(socketMappingToEvent_[sock] != nullptr){
+                socketMappingToEvent_[sock]->Handle(retEvent[i]);
+            }
         }
 
-
-        //这个是处理要加入的客户端
         [&]()->void{
 
+            //处理read调用返回的数据
             for(auto tran:transHandle_){
                 tran.func(tran.arg);
             }
             transHandle_.clear();
 
-            //处理这个要加一个锁
-            std::list<Task> tasks;
+            //处理从主线程加入的事件
+            std::list<std::unique_ptr<Event>> tasks;
             {
                 std::lock_guard<std::mutex> lockGuard(lock_);
                 tasks = std::move(eventhandle_);
                 eventhandle_.clear();
             }
-            for(auto task:tasks){
-                task.func(task.arg);
+            for(auto iter = tasks.begin();iter != tasks.end();++iter){
+                AddEvent(std::move(*iter));
             }
 
         }();
@@ -124,9 +123,8 @@ void Epoll::WriteHandle(){
 
 }
 
-
-void Epoll::AddAsyncEventHandle(Task&& task){
-    eventhandle_.push_back(task);
+void Epoll::AddAsyncEventHandle(std::unique_ptr<Event> event){
+    eventhandle_.push_back(std::move(event));
 }
 
 void Epoll::AddAsyncTransHandle(Trans &&trans) {

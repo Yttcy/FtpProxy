@@ -13,9 +13,9 @@ MyThread::MyThread():
 epoll_(std::make_shared<Epoll>())
 {
     pipe2(ioPipe_,O_NONBLOCK);
-    auto event = std::make_shared<Event>(ioPipe_[0]);
+    auto event = Event::create(ioPipe_[0]);
     event->SetReadHandle([this](auto && PH1) { OnNotify(std::forward<decltype(PH1)>(PH1)); });
-    epoll_->EpollAddEvent(event);
+    epoll_->AddEvent(std::move(event));
     PROXY_LOG_INFO("ioPipe r[%d],w[%d]",ioPipe_[0],ioPipe_[1]);
 }
 
@@ -23,10 +23,10 @@ void MyThread::Run() {
     th_ = std::thread(std::bind(&Epoll::Dispatch,epoll_.get()));
 }
 
-void MyThread::AddAsyncEventHandle(Task&& task) {
+void MyThread::AddAsyncEventHandle(std::unique_ptr<Event> event) {
     {
         std::lock_guard<std::mutex> lockGuard(epoll_->GetLock());
-        epoll_->AddAsyncEventHandle(std::forward<Task>(task));
+        epoll_->AddAsyncEventHandle(std::move(event));
     }
     Notify();
 }

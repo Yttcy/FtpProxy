@@ -29,11 +29,11 @@ void Client::CtpCmdReadCb(int sockfd){
 
         PROXY_LOG_WARN("client[%d] close the cmd connect!!!",sockfd);
         //socket关闭后，从epoll轮询中去掉客户端控制连接的套接字
-        epoll_->EpollDelEvent(clientToProxyCmdSocketEvent_);
-        epoll_->EpollDelEvent(proxyToServerCmdSocketEvent_);
+        epoll_->DelEvent(clientToProxyCmdSocket_);
+        epoll_->DelEvent(proxyToServerCmdSocket_);
 
         close(sockfd);
-        close(proxyToServerCmdSocketEvent_->GetSocketFd());
+        close(proxyToServerCmdSocket_);
 
         //这里还要删除对应的客户端保存的控制连接，也就是那个unordered_map
         //从客户端读到了内容，那么就处理
@@ -75,10 +75,10 @@ void Client::PtsCmdReadCb(int sockfd){
     //这大概就是客户端关闭了连接，发送了QUIT命令之类的
     if(read(sockfd,buff,BUFFSIZE) == 0){
         PROXY_LOG_WARN("server[%d] close the cmd connect!!!",sockfd);
-        epoll_->EpollDelEvent(clientToProxyCmdSocketEvent_);
-        epoll_->EpollDelEvent(proxyToServerCmdSocketEvent_);
+        epoll_->DelEvent(clientToProxyCmdSocket_);
+        epoll_->DelEvent(proxyToServerCmdSocket_);
         close(sockfd);
-        close(clientToProxyCmdSocketEvent_->GetSocketFd());
+        close(clientToProxyCmdSocket_);
         return;
     }
 
@@ -113,39 +113,45 @@ void Client::PtsCmdReadCb(int sockfd){
 //处理客户端或者ftp服务器连接到来的情况
 void Client::ProxyListenDataReadCb(int sockfd) {
     //这是被动模式，要先开一个客户端来连接到这个监听端口，是用来传送数据的
+
+    std::unique_ptr<Event> clientToProxyDataSocketEvent;
+    std::unique_ptr<Event> proxyToServerDataSocketEvent;
+
     if(pasv_mode == 1){
         int clientToProxyDataSocket = Utils::AcceptSocket(sockfd,nullptr,nullptr);        //client <-> proxy
-        clientToProxyDataSocketEvent_ = std::make_shared<Event>(clientToProxyDataSocket);
-        clientToProxyDataSocketEvent_->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->CtpDataReadCb(std::forward<decltype(PH1)>(PH1)); });
+        clientToProxyDataSocket_ = clientToProxyDataSocket;
+        clientToProxyDataSocketEvent = Event::create(clientToProxyDataSocket);
+        clientToProxyDataSocketEvent->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->CtpDataReadCb(std::forward<decltype(PH1)>(PH1)); });
 
         int proxyToServerDataSocket = Utils::ConnectToServer(serverIp_,serverDataPort_);
-        proxyToServerDataSocketEvent_ = std::make_shared<Event>(proxyToServerDataSocket);
-        proxyToServerDataSocketEvent_->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->PtsDataReadCb(std::forward<decltype(PH1)>(PH1)); });
+        proxyToServerDataSocket_ = proxyToServerDataSocket;
+        proxyToServerDataSocketEvent = Event::create(proxyToServerDataSocket);
+        proxyToServerDataSocketEvent->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->PtsDataReadCb(std::forward<decltype(PH1)>(PH1)); });
     }
     else if(pasv_mode == 2){    //主动模式,服务器连接过来了
-        int proxyToServerDataSocket = Utils::AcceptSocket(proxyListenDataSocketEvent_->GetSocketFd(),nullptr,nullptr);        //proxy <-> server
-        proxyToServerDataSocketEvent_ = std::make_shared<Event>(proxyToServerDataSocket);
-        proxyToServerDataSocketEvent_->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->PtsDataReadCb(std::forward<decltype(PH1)>(PH1)); });
+        int proxyToServerDataSocket = Utils::AcceptSocket(proxyListenDataSocket_,nullptr,nullptr);        //proxy <-> server
+        proxyToServerDataSocket_ = proxyToServerDataSocket;
+        proxyToServerDataSocketEvent = Event::create(proxyToServerDataSocket);
+        proxyToServerDataSocketEvent->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->PtsDataReadCb(std::forward<decltype(PH1)>(PH1)); });
 
         struct sockaddr_in cliaddr{};
         socklen_t clilen = sizeof(cliaddr);
         //这就假设port命令发出作为数据连接的IP地址 就是客户端的地址了
-        if(getpeername(clientToProxyCmdSocketEvent_->GetSocketFd(),(struct sockaddr *)&cliaddr,&clilen) < 0){
+        if(getpeername(clientToProxyCmdSocket_,(struct sockaddr *)&cliaddr,&clilen) < 0){
             perror("getpeername() failed: ");
         }
         cliaddr.sin_port = htons(clientDataPort_);
-        int clientToProxySocket = Utils::ConnectToServerByAddr(cliaddr); //client <-> proxy
-
-
-        clientToProxyDataSocketEvent_ = std::make_shared<Event>(clientToProxySocket);
-        clientToProxyDataSocketEvent_->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->CtpDataReadCb(std::forward<decltype(PH1)>(PH1)); });
+        int clientToProxyDataSocket = Utils::ConnectToServerByAddr(cliaddr); //client <-> proxy
+        clientToProxyDataSocket_ = clientToProxyDataSocket;
+        clientToProxyDataSocketEvent = Event::create(clientToProxyDataSocket);
+        clientToProxyDataSocketEvent->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->CtpDataReadCb(std::forward<decltype(PH1)>(PH1)); });
     }else{
         PROXY_LOG_FATAL("unknown pasv_mode!!!");
     }
 
 
-    epoll_->EpollAddEvent(clientToProxyDataSocketEvent_);
-    epoll_->EpollAddEvent(proxyToServerDataSocketEvent_);
+    epoll_->AddEvent(std::move(clientToProxyDataSocketEvent));
+    epoll_->AddEvent(std::move(proxyToServerDataSocketEvent));
     PROXY_LOG_INFO("data connecting established");
 }
 
@@ -155,13 +161,13 @@ void Client::CtpDataReadCb(int sockfd){
     char buff[BUFFSIZE] = {0};
     if((n = read(sockfd,buff,BUFFSIZE)) == 0){
 
-        epoll_->EpollDelEvent(proxyListenDataSocketEvent_);
-        epoll_->EpollDelEvent(clientToProxyDataSocketEvent_);
-        epoll_->EpollDelEvent(proxyToServerDataSocketEvent_);
+        epoll_->DelEvent(proxyListenDataSocket_);
+        epoll_->DelEvent(clientToProxyDataSocket_);
+        epoll_->DelEvent(proxyToServerDataSocket_);
 
-        close(proxyListenDataSocketEvent_->GetSocketFd());
-        close(clientToProxyDataSocketEvent_->GetSocketFd());
-        close(proxyToServerDataSocketEvent_->GetSocketFd());
+        close(proxyListenDataSocket_);
+        close(clientToProxyDataSocket_);
+        close(proxyToServerDataSocket_);
     }
     else{
         Data data{};
@@ -182,12 +188,12 @@ void Client::PtsDataReadCb(int sockfd){
     char buff[BUFFSIZE] = {0};
     if((n = read(sockfd,buff,BUFFSIZE)) == 0){
 
-        epoll_->EpollDelEvent(proxyListenDataSocketEvent_);
-        epoll_->EpollDelEvent(clientToProxyDataSocketEvent_);
-        epoll_->EpollDelEvent(proxyToServerDataSocketEvent_);
-        close(proxyListenDataSocketEvent_->GetSocketFd());
-        close(clientToProxyDataSocketEvent_->GetSocketFd());
-        close(proxyToServerDataSocketEvent_->GetSocketFd());
+        epoll_->DelEvent(proxyListenDataSocket_);
+        epoll_->DelEvent(clientToProxyDataSocket_);
+        epoll_->DelEvent(proxyToServerDataSocket_);
+        close(proxyListenDataSocket_);
+        close(clientToProxyDataSocket_);
+        close(proxyToServerDataSocket_);
     }
     else{
         Data data{};
@@ -248,9 +254,10 @@ int Client::ClientCmdHandle(char *cmd,char *param){
         //在这儿应该让proxyListenDataSocket监听任意端口,也就是等待服务器通过端口号20连接过来
         int proxyListenDataSocket = Utils::BindAndListenSocket(0); //开启proxyListenDataSocket、bind（）、listen操作
         proxyDataPort_ = Utils::GetSockLocalPort(proxyListenDataSocket); //这个端口是代理服务器随机生成的
-        proxyListenDataSocketEvent_ = std::make_shared<Event>(proxyListenDataSocket);
-        proxyListenDataSocketEvent_->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->ProxyListenDataReadCb(std::forward<decltype(PH1)>(PH1)); });
-        epoll_->EpollAddEvent(proxyListenDataSocketEvent_);
+        proxyListenDataSocket_ = proxyListenDataSocket;
+        auto proxyListenDataSocketEvent = Event::create(proxyListenDataSocket);
+        proxyListenDataSocketEvent->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->ProxyListenDataReadCb(std::forward<decltype(PH1)>(PH1)); });
+        epoll_->AddEvent(std::move(proxyListenDataSocketEvent));
         pasv_mode = 2;
 
         char param_temp[BUFFSIZE];
@@ -330,7 +337,7 @@ int Client::ClientCmdHandle(char *cmd,char *param){
     }
 
 
-    write(proxyToServerCmdSocketEvent_->GetSocketFd(),buff,strlen(buff));
+    write(proxyToServerCmdSocket_,buff,strlen(buff));
 
     return 0;
 }
@@ -365,12 +372,13 @@ int Client::ServerStatusHandle(char *cmd,char *param){
             if(strcmp(cmd,"227") == 0){
                 pasv_mode = 1;
                 int proxyListenDataSocket = Utils::BindAndListenSocket(0); //开启proxyListenDataSocket、bind（）、listen操作
-                proxyListenDataSocketEvent_ = std::make_shared<Event>(proxyListenDataSocket);
-                proxyListenDataSocketEvent_->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->ProxyListenDataReadCb(std::forward<decltype(PH1)>(PH1)); });
+                proxyListenDataSocket_ = proxyListenDataSocket;
+                auto proxyListenDataSocketEvent = Event::create(proxyListenDataSocket);
+                proxyListenDataSocketEvent->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->ProxyListenDataReadCb(std::forward<decltype(PH1)>(PH1)); });
                 //这是本地随机生成的端口号
                 proxyDataPort_ = Utils::GetSockLocalPort(proxyListenDataSocket);
 
-                epoll_->EpollAddEvent(proxyListenDataSocketEvent_);
+                epoll_->AddEvent(std::move(proxyListenDataSocketEvent));
 
                 serverDataPort_ = Utils::GetPortFromFtpParam(param + 23);
                 bzero(param + 23,BUFFSIZE - 23);
@@ -426,7 +434,7 @@ int Client::ServerStatusHandle(char *cmd,char *param){
     }
 
     sprintf(buff,"%s%s\r\n",cmd,param);
-    write(clientToProxyCmdSocketEvent_->GetSocketFd(),buff,strlen(buff));
+    write(clientToProxyCmdSocket_,buff,strlen(buff));
     return 0;
 }
 
@@ -434,13 +442,13 @@ int Client::ServerStatusHandle(char *cmd,char *param){
 //现在是什么都不做，就先直接发送就可以了
 int Client::ClientDataHandle(char *data) {
     //这个应该在那个联合数据里指定这个data的长度
-    write(proxyToServerDataSocketEvent_->GetSocketFd(),data,strlen(data));
+    write(proxyToServerDataSocket_,data,strlen(data));
     return 0;
 }
 
 //这个也是直接发送
 int Client::ServerDataHandle(char *data) {
-    write(clientToProxyDataSocketEvent_->GetSocketFd(),data,strlen(data));
+    write(clientToProxyDataSocket_,data,strlen(data));
     return 0;
 }
 

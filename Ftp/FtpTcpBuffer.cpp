@@ -2,22 +2,22 @@
 // Created by tomatoo on 1/12/23.
 //
 
-#include "TcpBuffer.h"
+#include "FtpTcpBuffer.h"
 
 
-TcpBuffer::TcpBuffer():
+FtpTcpBuffer::FtpTcpBuffer():
 buffer_(),
 index_(0)
 {
 
 }
 
-TcpBuffer& TcpBuffer::operator+=(char *buff) {
+FtpTcpBuffer& FtpTcpBuffer::operator+=(char *buff) {
     buffer_ += buff;
     return *this;
 }
 
-int TcpBuffer::JudgeCmd() {
+int FtpTcpBuffer::JudgeCmd() {
     int length = buffer_.length();
     for(size_t i = index_; i < length; ++i ){
         if(buffer_[i] == '\n'){
@@ -34,7 +34,7 @@ int TcpBuffer::JudgeCmd() {
 
 
 
-std::string TcpBuffer::GetCompleteCmd(){
+std::string FtpTcpBuffer::GetCompleteCmd(){
     auto end = buffer_.begin() + index_;
     std::string result(buffer_.begin(),end);
     buffer_.erase(buffer_.begin(),end);
@@ -44,11 +44,11 @@ std::string TcpBuffer::GetCompleteCmd(){
 
 
 //和GetCmd是一样的
-std::string TcpBuffer::GetCompleteStatus() {
+std::string FtpTcpBuffer::GetCompleteStatus() {
     return GetCompleteCmd();
 }
 
-bool TcpBuffer::JudgeStatusPart(){
+bool FtpTcpBuffer::JudgeStatusPart(){
     for(int i=0;i<3;++i){
         if(buffer_[index_+i] < '0' || buffer_[index_ + i] > '9'){
             return false;
@@ -63,7 +63,7 @@ bool TcpBuffer::JudgeStatusPart(){
 }
 
 
-int TcpBuffer::JudgeStatus() {
+int FtpTcpBuffer::JudgeStatus() {
 
     size_t position = buffer_.find_first_of("\r\n",index_);
 

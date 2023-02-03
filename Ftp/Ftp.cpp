@@ -21,16 +21,17 @@ int Ftp::AddToLoop(std::shared_ptr<EventLoop> &loop) {
     PROXY_LOG_INFO("listenCmdSocket is %d",listenCmdSocket_);
 
     //Ftp代理的事件
-    auto event = std::make_shared<Event>(listenCmdSocket_);
+    auto event = Event::create(listenCmdSocket_);
 
     //构造函数中不能调用这个shared_from_this
     auto func = [capture0 = shared_from_this()](int sockfd)->void{ capture0->FtpEvent(sockfd);};
     event->SetReadHandle(func);
-    return loop->AddEvent(event);
+    return loop->AddEvent(std::move(event));
 }
 
 void Ftp::FtpEvent(int sockfd) {
     assert(sockfd != 0);
+
     auto client = std::make_shared<Client>();
     client->status_ = STATUS_CONNECTED;
     //同样的
@@ -43,16 +44,16 @@ void Ftp::FtpEvent(int sockfd) {
     struct sockaddr_in clientaddr{};
     socklen_t socklen = sizeof(clientaddr);
     int clientToProxyCmdSocket = Utils::AcceptSocket(listenCmdSocket_, (struct sockaddr *)&clientaddr, &socklen);
-    auto ctpCmdEvent = std::make_shared<Event>(clientToProxyCmdSocket);
+    auto ctpCmdEvent = Event::create(clientToProxyCmdSocket);
     ctpCmdEvent->SetReadHandle([capture0 = client->GetClientPtr()](auto && PH1) { capture0->CtpCmdReadCb(std::forward<decltype(PH1)>(PH1)); });
-    client->clientToProxyCmdSocketEvent_ = ctpCmdEvent;
+    client->clientToProxyCmdSocket_ = clientToProxyCmdSocket;
 
 
     //是代理服务器到ftp服务器的控制连接。当密码通过验证的时候才去连接服务器吗，暂时先不改
     int proxyToServerCmdSocket = Utils::ConnectToServer(ServerIP,SERVER_CMD_PORT);
-    auto ptsCmdEvent = std::make_shared<Event>(proxyToServerCmdSocket);
+    auto ptsCmdEvent = Event::create(proxyToServerCmdSocket);
     ptsCmdEvent->SetReadHandle([capture0 = client->GetClientPtr()](auto && PH1){ capture0->PtsCmdReadCb(std::forward<decltype(PH1)>(PH1)); });
-    client->proxyToServerCmdSocketEvent_ = ptsCmdEvent;
+    client->proxyToServerCmdSocket_ = proxyToServerCmdSocket;
 
     //设置IP地址
     client->serverIp_ = ServerIP;
@@ -66,13 +67,13 @@ void Ftp::FtpEvent(int sockfd) {
     auto next_thread = loop_->GetNextThread();
     client->thread_ = next_thread;
 
-    auto task_func = [=](const std::shared_ptr<Client>& client1)->void{
-        client1->epoll_ = next_thread->GetEpoll();
-        client1->epoll_->EpollAddEvent(ctpCmdEvent);
-        client1->epoll_->EpollAddEvent(ptsCmdEvent);
-    };
+    //这个内部的Event没有复制构造函数
 
-    //现在这个AddEvent是线程安全的了
-    next_thread->AddAsyncEventHandle({task_func, client});
+    client->epoll_ = next_thread->GetEpoll();
+    next_thread->AddAsyncEventHandle(std::move(ctpCmdEvent));
+    next_thread->AddAsyncEventHandle(std::move(ptsCmdEvent));
+
+    //task_func中的捕获的参数没有复制构造函数，这个task没法构造
+
     PROXY_LOG_INFO("new client coming!!!");
 }

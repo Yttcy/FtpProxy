@@ -10,7 +10,7 @@
 #include <memory>
 
 #include "PublicParameters.h"
-#include "TcpBuffer.h"
+#include "FtpTcpBuffer.h"
 
 struct Data{
     union{

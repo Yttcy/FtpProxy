@@ -9,10 +9,10 @@
 #include <unistd.h>
 #include <thread>
 #include <mutex>
+#include <Event.h>
 
 class Epoll;
 class Client;
-struct Task;
 struct Trans;
 
 
@@ -21,7 +21,7 @@ public:
 
     explicit MyThread();
     void Run();
-    void AddAsyncEventHandle(Task&& task);
+    void AddAsyncEventHandle(std::unique_ptr<Event> event);
     void AddAsyncTransHandle(Trans&& trans);
     std::shared_ptr<Epoll> GetEpoll();
 

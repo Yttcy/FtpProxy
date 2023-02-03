@@ -1,10 +1,13 @@
+#include <unistd.h>
 #include "Util/Log.h"
 #include "EventLoop.h"
 #include "Ftp.h"
 
-int main(){
-    Proxy_SetLogLevel(PROXY_LOG_LEVEL_INFO);
+void test();
 
+int main(){
+
+    Proxy_SetLogLevel(PROXY_LOG_LEVEL_INFO);
 
     //初始化事件环
     auto loop = std::make_shared<EventLoop>();
@@ -15,3 +18,5 @@ int main(){
     loop->Start();
     return 0;
 }
+
+
