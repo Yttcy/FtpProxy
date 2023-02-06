@@ -17,7 +17,6 @@ class SerializeProtoData;
 class FtpTcpBuffer;
 
 
-//将哪些任务分配到其它线程中去呢
 typedef std::function<void(int)> Function;
 class Client :public std::enable_shared_from_this<Client>{
 public:
@@ -28,36 +27,33 @@ public:
     void CtpCmdReadCb(int sockfd); //客户端到代理服务器的控制连接回调
     void PtsCmdReadCb(int sockfd); //代理服务器到ftp服务器的控制连接回调
     void ProxyListenDataReadCb(int sockfd); //代理服务器的数据连接监听回调
-    void CtpDataReadCb(int sockfd); //客户端到代理服务器数据连接回
+    void CtpDataReadCb(int sockfd); //客户端到代理服务器数据连接回调
     void PtsDataReadCb(int sockfd); //代理服务器到ftp服务器数据连接回调
 
 private:
     void ProxyHandleData(const std::shared_ptr<SerializeProtoData>& serializeProtoData);
 
     int ClientCmdHandle(char *cmd,char *param);
-    int ServerStatusHandle(char *cmd,char *param);
+    int ServerStatusHandle(char *status,char *param);
     int ClientDataHandle(char *data);
     int ServerDataHandle(char *data);
 
-
-
 public:
     std::string userName_;
+    std::string pass_;
 
-    int status_;
+    int status_{};
     //这个套接字对每个客户端都是唯一的
     int proxyListenCmdSocket_{};
 
     //下面每个客户端都不是一样的了
+    int clientToProxyCmdSocket_{};
+    int proxyToServerCmdSocket_{};
+    int proxyListenDataSocket_{};
+    int clientToProxyDataSocket_{};
+    int proxyToServerDataSocket_{};
 
-    int clientToProxyCmdSocket_;
-    int proxyToServerCmdSocket_;
-    int proxyListenDataSocket_;
-    int clientToProxyDataSocket_;
-    int proxyToServerDataSocket_;
-
-
-    int lastCmdCount_{};
+    std::string lastCmd_;
 
     //以下端口对每个客户端都一样
     int proxyCmdPort_{};
@@ -73,7 +69,8 @@ public:
     std::string proxyIp_;
     std::string serverIp_;
 
-    FtpTcpBuffer buffer_;
+    FtpTcpBuffer cmdBuffer_;
+    FtpTcpBuffer statusBuffer_;
 
     int pasv_mode{};
 

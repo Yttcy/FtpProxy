@@ -23,19 +23,14 @@ public:
 
 };
 
-
-
 typedef std::function<void(int)> Function;
 class Event:public unique_ptr_only<Event>{
 
     friend class unique_ptr_only<Event>;
 private:
-    //得到描述符
     explicit Event(int sock);
 public:
     int GetSocketFd() const;
-
-    void SetSocketFd(int sockfd);
 
     //处理事件
     void Handle(epoll_event& epollEvent);

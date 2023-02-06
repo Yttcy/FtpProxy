@@ -19,8 +19,6 @@ class Client;
 class SerializeProtoData;
 
 typedef std::function<void(std::shared_ptr<SerializeProtoData>)> HandleDataTransFunc;
-
-
 struct Trans{
     HandleDataTransFunc func;
     std::shared_ptr<SerializeProtoData> arg;
@@ -53,6 +51,7 @@ private:
     std::list<std::unique_ptr<Event>> eventhandle_; //这里估计会有多线程的问题
     std::list<Trans> transHandle_; //这个没有多线程的问题
     int epollFd_; //epoll专用的描述符
+    int socketNum_; //epoll中的描述符数量
     std::unordered_map<int,std::unique_ptr<Event>> socketMappingToEvent_; //套接字到事件的映射
 };
 

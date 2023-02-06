@@ -23,9 +23,12 @@
 #define ServerIP "127.0.0.1"
 
 //定义客户端的状态
-#define STATUS_CONNECTED 0
-#define STATUS_USER_INPUTTED 1
-#define STATUS_PASS_AUTHENTICATED 2
+
+#define STATUS_DISCONNECTED 0
+#define STATUS_CONNECTED 1
+#define STATUS_USER_INPUTTED 2
+#define STATUS_PASS_AUTHENTICATED 3
+#define STATUS_PROXYDATA_LISTEN 4
 
 
 //最大的客户端命令长度，需要+1
@@ -73,37 +76,6 @@
 #define CMD_HELP "HELP"
 #define CMD_NOOP "NOOP"
 
-#define CMD_USER_COUNT 0
-#define CMD_PASS_COUNT 1
-#define CMD_ACCT_COUNT 2
-#define CMD_CWD_COUNT  3
-#define CMD_CDUP_COUNT 4
-#define CMD_SMNT_COUNT 5
-#define CMD_QUIT_COUNT 6
-#define CMD_REIN_COUNT 7
-#define CMD_PORT_COUNT 8
-#define CMD_PASV_COUNT 9
-#define CMD_TYPE_COUNT 10
-#define CMD_STRU_COUNT 11
-#define CMD_MODE_COUNT 12
-#define CMD_RETR_COUNT 13
-#define CMD_STOR_COUNT 14
-#define CMD_APPE_COUNT 15
-#define CMD_ALLO_COUNT 16
-#define CMD_REST_COUNT 17
-#define CMD_RNFR_COUNT 18
-#define CMD_RNTO_COUNT 19
-#define CMD_ABOR_COUNT 20
-#define CMD_DELE_COUNT 21
-#define CMD_MKD_COUNT  22
-#define CMD_PWD_COUNT  23
-#define CMD_LIST_COUNT 24
-#define CMD_NLST_COUNT 25
-#define CMD_SITE_COUNT 26
-#define CMD_SYST_COUNT 27
-#define CMD_STAT_COUNT 28
-#define CMD_HELP_COUNT 29
-#define CMD_NOOP_COUNT 30
 
 
 

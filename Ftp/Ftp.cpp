@@ -33,7 +33,7 @@ void Ftp::FtpEvent(int sockfd) {
     assert(sockfd != 0);
 
     auto client = std::make_shared<Client>();
-    client->status_ = STATUS_CONNECTED;
+    client->status_ = STATUS_DISCONNECTED;
     //同样的
     client->proxyCmdPort_ = PROXY_LISTEN_CMD_PORT;
     client->serverCmdPort_ = SERVER_CMD_PORT;
@@ -44,16 +44,12 @@ void Ftp::FtpEvent(int sockfd) {
     struct sockaddr_in clientaddr{};
     socklen_t socklen = sizeof(clientaddr);
     int clientToProxyCmdSocket = Utils::AcceptSocket(listenCmdSocket_, (struct sockaddr *)&clientaddr, &socklen);
+    client->status_ = STATUS_CONNECTED;
     auto ctpCmdEvent = Event::create(clientToProxyCmdSocket);
     ctpCmdEvent->SetReadHandle([capture0 = client->GetClientPtr()](auto && PH1) { capture0->CtpCmdReadCb(std::forward<decltype(PH1)>(PH1)); });
     client->clientToProxyCmdSocket_ = clientToProxyCmdSocket;
-
-
-    //是代理服务器到ftp服务器的控制连接。当密码通过验证的时候才去连接服务器吗，暂时先不改
-    int proxyToServerCmdSocket = Utils::ConnectToServer(ServerIP,SERVER_CMD_PORT);
-    auto ptsCmdEvent = Event::create(proxyToServerCmdSocket);
-    ptsCmdEvent->SetReadHandle([capture0 = client->GetClientPtr()](auto && PH1){ capture0->PtsCmdReadCb(std::forward<decltype(PH1)>(PH1)); });
-    client->proxyToServerCmdSocket_ = proxyToServerCmdSocket;
+    std::string reply("220 (vsFTPd 3.0.3)\r\n");
+    write(clientToProxyCmdSocket,reply.c_str(),reply.size());
 
     //设置IP地址
     client->serverIp_ = ServerIP;
@@ -61,18 +57,14 @@ void Ftp::FtpEvent(int sockfd) {
     char ipStr[100] = {};
     inet_ntop(AF_INET,&clientaddr.sin_addr,ipStr,socklen);
     client->clientIp_ = ipStr;
-    Utils::GetSockLocalIp(proxyToServerCmdSocket,client->proxyIp_);
+
 
     //这里是将Ftp客户端加入到了线程池中去处理，也就是一个客户端只能让一个线程来处理
     auto next_thread = loop_->GetNextThread();
     client->thread_ = next_thread;
 
-    //这个内部的Event没有复制构造函数
-
     client->epoll_ = next_thread->GetEpoll();
     next_thread->AddAsyncEventHandle(std::move(ctpCmdEvent));
-    next_thread->AddAsyncEventHandle(std::move(ptsCmdEvent));
-
     //task_func中的捕获的参数没有复制构造函数，这个task没法构造
 
     PROXY_LOG_INFO("new client coming!!!");

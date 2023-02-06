@@ -5,7 +5,6 @@
 #include <cassert>
 
 #include "Event.h"
-#include "Util/Utils.h"
 #include "Util/Log.h"
 
 Event::Event(int sock):
@@ -18,11 +17,6 @@ int Event::GetSocketFd() const {
     assert(socketFd_ != 0);
     return socketFd_;
 }
-
-void Event::SetSocketFd(int sockfd) {
-    socketFd_ = sockfd;
-}
-
 
 void Event::Handle(epoll_event& epollEvent){
     int socketFd = epollEvent.data.fd;

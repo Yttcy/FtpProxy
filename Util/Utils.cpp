@@ -134,7 +134,7 @@ int Utils::AcceptSocket(int cmd_socket,struct sockaddr *addr,socklen_t *addrlen)
     int fd = accept(cmd_socket,addr,addrlen);
     if(fd < 1){
         perror("accept() failed:");
-        exit(1);
+        return fd;
     }
 
     return fd;
@@ -163,6 +163,8 @@ int Utils::ConnectToServerByAddr(struct sockaddr_in servaddr)
     }
 
     servaddr.sin_family = AF_INET;
+    //这里如果连接失败就直接退出是有问题的，万一是客户端那边没有打开监听端口呢，那代理
+    //服务器直接退出就是不合理的
     if(connect(fd,(struct sockaddr *)&servaddr,sizeof(servaddr)) < 0){
         perror("connect() failed :");
         exit(1);
@@ -175,7 +177,7 @@ int Utils::ConnectToServerByAddr(struct sockaddr_in servaddr)
 int Utils::ConnectToServer(const std::string& ip,unsigned short port)
 {
     int fd;
-    struct sockaddr_in servaddr;
+    struct sockaddr_in servaddr{};
 
     bzero(&servaddr,sizeof(servaddr));
     servaddr.sin_family = AF_INET;
@@ -185,12 +187,12 @@ int Utils::ConnectToServer(const std::string& ip,unsigned short port)
     fd = socket(AF_INET,SOCK_STREAM,0);
     if(fd < 0){
         perror("socket() failed :");
-        exit(1);
+        return fd;
     }
 
     if(connect(fd,(struct sockaddr *)&servaddr,sizeof(servaddr)) < 0){
         perror("connect() failed :");
-        exit(1);
+        return -1;
     }
 
     return fd;

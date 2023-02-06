@@ -11,10 +11,9 @@
 #include "Util/Log.h"
 #include "Proto.h"
 #include <Thread/MyThread.h>
+#include <cassert>
 
-Client::Client() {
-
-}
+Client::Client() = default;
 
 std::shared_ptr<Client> Client::GetClientPtr(){
     return shared_from_this();
@@ -30,27 +29,31 @@ void Client::CtpCmdReadCb(int sockfd){
         PROXY_LOG_WARN("client[%d] close the cmd connect!!!",sockfd);
         //socket关闭后，从epoll轮询中去掉客户端控制连接的套接字
         epoll_->DelEvent(clientToProxyCmdSocket_);
-        epoll_->DelEvent(proxyToServerCmdSocket_);
-
         close(sockfd);
-        close(proxyToServerCmdSocket_);
 
+        //没准这时候还没有创建这个socket呢。。。。
+        if(status_ >= STATUS_PASS_AUTHENTICATED){
+            epoll_->DelEvent(proxyToServerCmdSocket_);
+            close(proxyToServerCmdSocket_);
+        }
+
+        if(status_ >= STATUS_PROXYDATA_LISTEN){
+            epoll_->DelEvent(proxyListenDataSocket_);
+            close(proxyListenDataSocket_);
+        }
         //这里还要删除对应的客户端保存的控制连接，也就是那个unordered_map
         //从客户端读到了内容，那么就处理
     }else{
-
-        //在这里模拟TCP分片，第一次来数据的时候就给buff替换成《USER 》，后续再发送账号。
-
         //如果读到了数据，那么就回调到上层去处理，暂时就是先回到epoll哪里去处理吧。
         PROXY_LOG_INFO("command received from client : %s",buff);
 
         //这里需要处理，必须要读到一次完整的命令，才可以做协议解析，反正就默认最大是1024个字节
-        buffer_ += buff;
-        int ret = buffer_.JudgeCmd();
+        cmdBuffer_ += buff;
+        int ret = cmdBuffer_.JudgeCmd();
         if(ret != 0){
             return;
         }
-        std::string res = buffer_.GetCompleteCmd();
+        std::string res = cmdBuffer_.GetCompleteCmd();
         PROXY_LOG_FATAL("client complete cmd:%s",res.c_str());
 
         Data data{};
@@ -64,7 +67,6 @@ void Client::CtpCmdReadCb(int sockfd){
 
         this->thread_->AddAsyncTransHandle(std::move(trans));
     }
-
 }
 
 //处理ftp服务器端有命令到达
@@ -76,9 +78,16 @@ void Client::PtsCmdReadCb(int sockfd){
     if(read(sockfd,buff,BUFFSIZE) == 0){
         PROXY_LOG_WARN("server[%d] close the cmd connect!!!",sockfd);
         epoll_->DelEvent(clientToProxyCmdSocket_);
-        epoll_->DelEvent(proxyToServerCmdSocket_);
-        close(sockfd);
         close(clientToProxyCmdSocket_);
+
+        epoll_->DelEvent(proxyToServerCmdSocket_);
+        close(proxyToServerCmdSocket_);
+
+        if(status_ == STATUS_PROXYDATA_LISTEN){
+            epoll_->DelEvent(proxyListenDataSocket_);
+            close(proxyListenDataSocket_);
+        }
+
         return;
     }
 
@@ -86,14 +95,12 @@ void Client::PtsCmdReadCb(int sockfd){
     //处理ftp服务器的Response,如果有多行，暂时拿第一个状态码作为cmd，后面都是param，包括第一行的-
     //////////
 
-
-
-    buffer_ += buff;
-    int ret = buffer_.JudgeStatus();
+    statusBuffer_ += buff;
+    int ret = statusBuffer_.JudgeStatus();
     if(ret != 0){
         return;
     }
-    std::string res = buffer_.GetCompleteStatus();
+    std::string res = statusBuffer_.GetCompleteStatus();
 
     PROXY_LOG_ERROR("server complete status:%s",res.c_str());
 
@@ -117,7 +124,7 @@ void Client::ProxyListenDataReadCb(int sockfd) {
     std::unique_ptr<Event> clientToProxyDataSocketEvent;
     std::unique_ptr<Event> proxyToServerDataSocketEvent;
 
-    if(pasv_mode == 1){
+    if(pasv_mode == 1){ //被动模式
         int clientToProxyDataSocket = Utils::AcceptSocket(sockfd,nullptr,nullptr);        //client <-> proxy
         clientToProxyDataSocket_ = clientToProxyDataSocket;
         clientToProxyDataSocketEvent = Event::create(clientToProxyDataSocket);
@@ -218,223 +225,156 @@ int Client::ClientCmdHandle(char *cmd,char *param){
     //如果是客户端开启主动模式的命令
     char buff[BUFFSIZE];
     bzero(buff,BUFFSIZE);
+    int targetSocket = proxyToServerCmdSocket_;
+    std::string reply;
+    lastCmd_ = std::move(std::string(cmd));
     if(strcmp(cmd,CMD_USER) == 0){
-        lastCmdCount_ = CMD_USER_COUNT;
         userName_ = param;
         status_ = STATUS_USER_INPUTTED;
-        DoNothingForCmd(buff,cmd,param);
+        targetSocket = clientToProxyCmdSocket_;
+        reply = "331 Please specify the password.\r\n";
+        strcpy(buff,reply.c_str());
+        write(targetSocket,reply.c_str(),reply.length());
     }else if(strcmp(cmd,CMD_PASS) == 0){
-        lastCmdCount_ = CMD_PASS_COUNT;
-        /* 在这里进行认证 */
-        status_ = STATUS_PASS_AUTHENTICATED;
-        /* 连接到服务器 */
-
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_ACCT) == 0){
-        lastCmdCount_ = CMD_ACCT_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_CWD) == 0){
-        lastCmdCount_ = CMD_CWD_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_CDUP) == 0){
-        lastCmdCount_ = CMD_CDUP_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_SMNT) == 0){
-        lastCmdCount_ = CMD_SMNT_COUNT;
-        DoNothingForCmd(buff,cmd,param);
+        pass_ = param;
+        /* 在这里进行简单认证，就先测试一下********************** */
+        if(userName_ == "ftpuser" && strcmp(param,"qasa55567") == 0){
+            //OK,如果代理这边认证通过了，那么代理就开始向服务端发起认证
+            //代理这边认证通过了之后应该就可以确定资产了，然后代理连接对应的资产，OK
+            //等到服务端认证通过了之后，代理才向客户端回复230成功或者530失败
+            //行，先发送账号
+            int proxyToServerCmdSocket = Utils::ConnectToServer(ServerIP,SERVER_CMD_PORT);
+            //如果连接失败了，直接关闭与客户端的连接
+            if(proxyToServerCmdSocket < 0){
+                close(clientToProxyCmdSocket_);
+                return 0;
+            }
+            auto ptsCmdEvent = Event::create(proxyToServerCmdSocket);
+            ptsCmdEvent->SetReadHandle([capture0 = GetClientPtr()](auto && PH1){ capture0->PtsCmdReadCb(std::forward<decltype(PH1)>(PH1)); });
+            proxyToServerCmdSocket_ = proxyToServerCmdSocket;
+            Utils::GetSockLocalIp(proxyToServerCmdSocket,proxyIp_);
+            thread_->AddAsyncEventHandle(std::move(ptsCmdEvent));
+            sprintf(buff,"USER %s\r\n",userName_.c_str());
+            targetSocket = proxyToServerCmdSocket_;
+            status_ = STATUS_PASS_AUTHENTICATED;
+            reply = buff;
+            write(targetSocket,reply.c_str(),reply.length());
+            return 0;
+        }else{
+            //如果认证失败了，就直接发给客户端530
+            reply = "530 Login incorrect.\r\n";
+            targetSocket = clientToProxyCmdSocket_;
+            strcpy(buff,reply.c_str());
+            write(targetSocket,reply.c_str(),reply.length());
+        }
     }else if(strcmp(cmd,CMD_QUIT) == 0){
-        lastCmdCount_ = CMD_QUIT_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_REIN) == 0){
-        lastCmdCount_ = CMD_REIN_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_PORT) == 0){
+        //这个QUIT不能简单的直接转发给服务器，还要根据连接进行到哪一步来看。
+        //因为代理这边有可能还没有连接服务器呢。。。
 
-        lastCmdCount_ = CMD_PORT_COUNT;
+        if(status_ >= STATUS_PASS_AUTHENTICATED){
+            DoNothingForCmd(buff,cmd,param);
+            reply = buff;
+            PROXY_LOG_DEBUG("send to server:%s",buff);
+            write(targetSocket,reply.c_str(),reply.length());
+            return 0;
+        }
+        reply = "221 Goodbye.\r\n";
+        targetSocket = clientToProxyCmdSocket_;
+        write(targetSocket,reply.c_str(),reply.length());
+        epoll_->DelEvent(clientToProxyCmdSocket_);
+        close(clientToProxyCmdSocket_);
+        return 0;
+    }else{
+        if(status_ != STATUS_PASS_AUTHENTICATED){
+            reply = "530 Please login with USER and PASS.\r\n";
+            targetSocket = clientToProxyCmdSocket_;
+            write(targetSocket,reply.c_str(),reply.length());
+        }
+    }
+
+    if(status_ != STATUS_PASS_AUTHENTICATED){
+        return 0;
+    }
+
+
+    if(strcmp(cmd,CMD_PORT) == 0){
+        lastCmd_ = CMD_PORT;
+        pasv_mode = 2;
         //在这儿应该让proxyListenDataSocket监听任意端口,也就是等待服务器通过端口号20连接过来
         int proxyListenDataSocket = Utils::BindAndListenSocket(0); //开启proxyListenDataSocket、bind（）、listen操作
+        status_ = STATUS_PROXYDATA_LISTEN;
         proxyDataPort_ = Utils::GetSockLocalPort(proxyListenDataSocket); //这个端口是代理服务器随机生成的
         proxyListenDataSocket_ = proxyListenDataSocket;
         auto proxyListenDataSocketEvent = Event::create(proxyListenDataSocket);
         proxyListenDataSocketEvent->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->ProxyListenDataReadCb(std::forward<decltype(PH1)>(PH1)); });
         epoll_->AddEvent(std::move(proxyListenDataSocketEvent));
-        pasv_mode = 2;
 
         char param_temp[BUFFSIZE];
         strcpy(param_temp,param);
         clientDataPort_ = Utils::GetPortFromFtpParam(param_temp);
         bzero(buff,BUFFSIZE);
         sprintf(buff,"PORT %s,%d,%d\r\n",proxyIp_.c_str(),proxyDataPort_ / 256,proxyDataPort_ % 256);
-
     }else if(strcmp(cmd,CMD_PASV) == 0){
-        lastCmdCount_ = CMD_PASS_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_TYPE) == 0){
-        lastCmdCount_ = CMD_TYPE_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_STRU) == 0){
-        lastCmdCount_ = CMD_STRU_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_MODE) == 0){
-        lastCmdCount_ = CMD_MODE_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_RETR) == 0){
-        lastCmdCount_ = CMD_RETR_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_STOR) == 0){
-        lastCmdCount_ = CMD_STOR_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_APPE) == 0){
-        lastCmdCount_ = CMD_APPE_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_ALLO) == 0){
-        lastCmdCount_ = CMD_ALLO_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_REST) == 0){
-        lastCmdCount_ = CMD_REST_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_RNFR) == 0){
-        lastCmdCount_ = CMD_RNFR_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_RNTO) == 0){
-        lastCmdCount_ = CMD_RNTO_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_ABOR) == 0){
-        lastCmdCount_ = CMD_ABOR_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_DELE) == 0){
-        lastCmdCount_ = CMD_DELE_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_MKD) == 0){
-        lastCmdCount_ = CMD_MKD_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_PWD) == 0){
-        lastCmdCount_ = CMD_PWD_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_LIST) == 0){
-        lastCmdCount_ = CMD_LIST_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_NLST) == 0){
-        lastCmdCount_ = CMD_NLST_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_SITE) == 0){
-        lastCmdCount_ = CMD_SITE_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_SYST) == 0){
-        lastCmdCount_ = CMD_SYST_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_STAT) == 0){
-        lastCmdCount_ = CMD_STAT_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_HELP) == 0){
-        lastCmdCount_ = CMD_HELP_COUNT;
-        DoNothingForCmd(buff,cmd,param);
-    }else if(strcmp(cmd,CMD_NOOP) == 0){
-        lastCmdCount_ = CMD_NOOP_COUNT;
+        lastCmd_ = CMD_PASV;
+        pasv_mode = 1;
         DoNothingForCmd(buff,cmd,param);
     }else{
         DoNothingForCmd(buff,cmd,param);
     }
 
-
-    write(proxyToServerCmdSocket_,buff,strlen(buff));
-
+    PROXY_LOG_DEBUG("send to server:%s",buff);
+    write(targetSocket,buff,strlen(buff));
     return 0;
 }
 
 
 //这里完全根据服务端返回的状态码来判断是有问题的，不同的客户端命令可能返回相同的状态码，所有要结合客户端的命令来判断
 //如果结合客户端命令来的话，那么if-else就比较多了。
-int Client::ServerStatusHandle(char *cmd,char *param){
+int Client::ServerStatusHandle(char *status,char *param){
 
     char buff[BUFFSIZE];
     bzero(buff,BUFFSIZE);
+    int targetSocket = clientToProxyCmdSocket_;
+    if(lastCmd_ == CMD_PASV){
+        if(strcmp(status,"227") == 0){
+            pasv_mode = 1;
+            int proxyListenDataSocket = Utils::BindAndListenSocket(0); //开启proxyListenDataSocket、bind（）、listen操作
+            status_ = STATUS_PROXYDATA_LISTEN;
+            proxyListenDataSocket_ = proxyListenDataSocket;
+            auto proxyListenDataSocketEvent = Event::create(proxyListenDataSocket);
+            proxyListenDataSocketEvent->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->ProxyListenDataReadCb(std::forward<decltype(PH1)>(PH1)); });
+            //这是本地随机生成的端口号
+            proxyDataPort_ = Utils::GetSockLocalPort(proxyListenDataSocket);
 
-    switch(lastCmdCount_){
-        case CMD_USER_COUNT:
-            break;
-        case CMD_PASS_COUNT:
-            break;
-        case CMD_ACCT_COUNT:
-            break;
-        case CMD_CWD_COUNT:
-            break;
-        case CMD_CDUP_COUNT:
-            break;
-        case CMD_SMNT_COUNT:
-            break;
-        case CMD_QUIT_COUNT:
-            break;
-        case CMD_REIN_COUNT:
-            break;
-        case CMD_PORT_COUNT:
-            //命令是PROT，返回的状态码是227，那么就应该没有问题
-            if(strcmp(cmd,"227") == 0){
-                pasv_mode = 1;
-                int proxyListenDataSocket = Utils::BindAndListenSocket(0); //开启proxyListenDataSocket、bind（）、listen操作
-                proxyListenDataSocket_ = proxyListenDataSocket;
-                auto proxyListenDataSocketEvent = Event::create(proxyListenDataSocket);
-                proxyListenDataSocketEvent->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->ProxyListenDataReadCb(std::forward<decltype(PH1)>(PH1)); });
-                //这是本地随机生成的端口号
-                proxyDataPort_ = Utils::GetSockLocalPort(proxyListenDataSocket);
+            epoll_->AddEvent(std::move(proxyListenDataSocketEvent));
 
-                epoll_->AddEvent(std::move(proxyListenDataSocketEvent));
-
-                serverDataPort_ = Utils::GetPortFromFtpParam(param + 23);
-                bzero(param + 23,BUFFSIZE - 23);
-                sprintf(param + 23,"%s,%d,%d).\r\n",clientIp_.c_str(),proxyDataPort_ / 256,proxyDataPort_ % 256);
-            }
-            break;
-        case CMD_PASV_COUNT:
-            break;
-        case CMD_TYPE_COUNT:
-            break;
-        case CMD_STRU_COUNT:
-            break;
-        case CMD_MODE_COUNT:
-            break;
-        case CMD_RETR_COUNT:
-            break;
-        case CMD_STOR_COUNT:
-            break;
-        case CMD_APPE_COUNT:
-            break;
-        case CMD_ALLO_COUNT:
-            break;
-        case CMD_REST_COUNT:
-            break;
-        case CMD_RNFR_COUNT:
-            break;
-        case CMD_RNTO_COUNT:
-            break;
-        case CMD_ABOR_COUNT:
-            break;
-        case CMD_DELE_COUNT:
-            break;
-        case CMD_MKD_COUNT:
-            break;
-        case CMD_PWD_COUNT:
-            break;
-        case CMD_LIST_COUNT:
-            break;
-        case CMD_NLST_COUNT:
-            break;
-        case CMD_SITE_COUNT:
-            break;
-        case CMD_SYST_COUNT:
-            break;
-        case CMD_STAT_COUNT:
-            break;
-        case CMD_HELP_COUNT:
-            break;
-        case CMD_NOOP_COUNT:
-            break;
-        default:
-            PROXY_LOG_FATAL("unknown cmd count");
+            serverDataPort_ = Utils::GetPortFromFtpParam(param + 23);
+            bzero(param + 24,BUFFSIZE - 24);
+            sprintf(param + 24,"%s,%d,%d).\r\n",proxyIp_.c_str(),proxyDataPort_ / 256,proxyDataPort_ % 256);
+            sprintf(buff,"%s%s",status,param);
+        }
+    }else if(lastCmd_ == CMD_PASS){
+        //这是代理向服务端发送了账号之后
+        if(strcmp(status,"331") == 0){
+            targetSocket = proxyToServerCmdSocket_;
+            sprintf(buff,"PASS %s\r\n",pass_.c_str());
+        }
+        if(strcmp(status,"230") == 0){
+            targetSocket = clientToProxyCmdSocket_;
+            sprintf(buff,"%s%s\r\n",status,param);
+        }
+        //这个代表代理连接服务器成功了
+        if(strcmp(status,"220") == 0){
+            return 0;
+        }
+    }else{
+        targetSocket = clientToProxyCmdSocket_;
+        sprintf(buff,"%s%s\r\n",status,param);
     }
 
-    sprintf(buff,"%s%s\r\n",cmd,param);
-    write(clientToProxyCmdSocket_,buff,strlen(buff));
+    assert(targetSocket != 0);
+    PROXY_LOG_DEBUG("send to client:%s",buff);
+    write(targetSocket,buff,strlen(buff));
     return 0;
 }
 
