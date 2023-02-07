@@ -22,7 +22,7 @@ int FtpTcpBuffer::JudgeCmd() {
     for(size_t i = index_; i < length; ++i ){
         if(buffer_[i] == '\n'){
             if(i > 0 && buffer_[i-1] == '\r'){
-                index_ = length ;
+                index_ = i+1 ;
                 return 0;
             }
         }

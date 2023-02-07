@@ -41,7 +41,11 @@ void Client::CtpCmdReadCb(int sockfd){
             epoll_->DelEvent(proxyListenDataSocket_);
             close(proxyListenDataSocket_);
         }
-        //这里还要删除对应的客户端保存的控制连接，也就是那个unordered_map
+
+        status_ = STATUS_DISCONNECTED;
+        return;
+        //这里似乎不需要改变状态了。这个Client对应的事件都没了，那么这个Client对象也没了
+
         //从客户端读到了内容，那么就处理
     }else{
         //如果读到了数据，那么就回调到上层去处理，暂时就是先回到epoll哪里去处理吧。
@@ -77,17 +81,22 @@ void Client::PtsCmdReadCb(int sockfd){
     //这大概就是客户端关闭了连接，发送了QUIT命令之类的
     if(read(sockfd,buff,BUFFSIZE) == 0){
         PROXY_LOG_WARN("server[%d] close the cmd connect!!!",sockfd);
+
+
         epoll_->DelEvent(clientToProxyCmdSocket_);
         close(clientToProxyCmdSocket_);
 
-        epoll_->DelEvent(proxyToServerCmdSocket_);
-        close(proxyToServerCmdSocket_);
+        if(status_ >= STATUS_PASS_AUTHENTICATED){
+            epoll_->DelEvent(proxyToServerCmdSocket_);
+            close(proxyToServerCmdSocket_);
+        }
 
-        if(status_ == STATUS_PROXYDATA_LISTEN){
+        if(status_ >= STATUS_PROXYDATA_LISTEN){
             epoll_->DelEvent(proxyListenDataSocket_);
             close(proxyListenDataSocket_);
         }
 
+        status_ = STATUS_DISCONNECTED;
         return;
     }
 
@@ -167,16 +176,21 @@ void Client::CtpDataReadCb(int sockfd){
     long n;
     char buff[BUFFSIZE] = {0};
     if((n = read(sockfd,buff,BUFFSIZE)) == 0){
+        PROXY_LOG_WARN("client[%d] close the data socket",clientToProxyDataSocket_);
 
-        epoll_->DelEvent(proxyListenDataSocket_);
+
         epoll_->DelEvent(clientToProxyDataSocket_);
-        epoll_->DelEvent(proxyToServerDataSocket_);
-
-        close(proxyListenDataSocket_);
         close(clientToProxyDataSocket_);
+
+        epoll_->DelEvent(proxyToServerDataSocket_);
         close(proxyToServerDataSocket_);
-    }
-    else{
+
+        if(status_ >= STATUS_PASS_AUTHENTICATED){
+            status_ = STATUS_PASS_AUTHENTICATED;
+        }
+
+
+    }else{
         Data data{};
         memset(&data,0,sizeof(data));
         memcpy(data.u.cdata.data,buff,n);
@@ -194,13 +208,17 @@ void Client::PtsDataReadCb(int sockfd){
     long n;
     char buff[BUFFSIZE] = {0};
     if((n = read(sockfd,buff,BUFFSIZE)) == 0){
+        PROXY_LOG_WARN("server[%d] close the data socket",proxyToServerDataSocket_);
 
-        epoll_->DelEvent(proxyListenDataSocket_);
         epoll_->DelEvent(clientToProxyDataSocket_);
-        epoll_->DelEvent(proxyToServerDataSocket_);
-        close(proxyListenDataSocket_);
         close(clientToProxyDataSocket_);
+
+        epoll_->DelEvent(proxyToServerDataSocket_);
         close(proxyToServerDataSocket_);
+
+
+        if(status_ >= STATUS_PASS_AUTHENTICATED)
+            status_ = STATUS_PASS_AUTHENTICATED;
     }
     else{
         Data data{};
@@ -229,9 +247,14 @@ int Client::ClientCmdHandle(char *cmd,char *param){
     std::string reply;
     lastCmd_ = std::move(std::string(cmd));
     if(strcmp(cmd,CMD_USER) == 0){
+        targetSocket = clientToProxyCmdSocket_;
+        if(status_ >= STATUS_PASS_AUTHENTICATED){
+            reply = "530 Can't change to another user.\r\n";
+            write(targetSocket,reply.c_str(),reply.length());
+            return 0;
+        }
         userName_ = param;
         status_ = STATUS_USER_INPUTTED;
-        targetSocket = clientToProxyCmdSocket_;
         reply = "331 Please specify the password.\r\n";
         strcpy(buff,reply.c_str());
         write(targetSocket,reply.c_str(),reply.length());
@@ -249,11 +272,13 @@ int Client::ClientCmdHandle(char *cmd,char *param){
                 close(clientToProxyCmdSocket_);
                 return 0;
             }
+
             auto ptsCmdEvent = Event::create(proxyToServerCmdSocket);
             ptsCmdEvent->SetReadHandle([capture0 = GetClientPtr()](auto && PH1){ capture0->PtsCmdReadCb(std::forward<decltype(PH1)>(PH1)); });
             proxyToServerCmdSocket_ = proxyToServerCmdSocket;
             Utils::GetSockLocalIp(proxyToServerCmdSocket,proxyIp_);
             thread_->AddAsyncEventHandle(std::move(ptsCmdEvent));
+
             sprintf(buff,"USER %s\r\n",userName_.c_str());
             targetSocket = proxyToServerCmdSocket_;
             status_ = STATUS_PASS_AUTHENTICATED;
@@ -270,7 +295,6 @@ int Client::ClientCmdHandle(char *cmd,char *param){
     }else if(strcmp(cmd,CMD_QUIT) == 0){
         //这个QUIT不能简单的直接转发给服务器，还要根据连接进行到哪一步来看。
         //因为代理这边有可能还没有连接服务器呢。。。
-
         if(status_ >= STATUS_PASS_AUTHENTICATED){
             DoNothingForCmd(buff,cmd,param);
             reply = buff;
@@ -285,14 +309,14 @@ int Client::ClientCmdHandle(char *cmd,char *param){
         close(clientToProxyCmdSocket_);
         return 0;
     }else{
-        if(status_ != STATUS_PASS_AUTHENTICATED){
+        if(status_ < STATUS_PASS_AUTHENTICATED){
             reply = "530 Please login with USER and PASS.\r\n";
             targetSocket = clientToProxyCmdSocket_;
             write(targetSocket,reply.c_str(),reply.length());
         }
     }
 
-    if(status_ != STATUS_PASS_AUTHENTICATED){
+    if(status_ < STATUS_PASS_AUTHENTICATED){
         return 0;
     }
 

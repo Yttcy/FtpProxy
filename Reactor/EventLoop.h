@@ -25,7 +25,6 @@ public:
     int AddEvent(std::unique_ptr<Event> event);
 
     std::shared_ptr<MyThread> GetNextThread();
-
 private:
 
     std::shared_ptr<Epoll> epoll_;

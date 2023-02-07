@@ -4,7 +4,6 @@
 
 #include <memory>
 #include "EventLoop.h"
-#include "Util/Utils.h"
 #include "Client.h"
 #include "Util/Log.h"
 #include <Thread/MyThreadPool.h>

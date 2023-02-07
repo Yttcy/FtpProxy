@@ -11,6 +11,7 @@
 #include <memory>
 
 
+//继承这个就只能通过create创建了
 template<typename T>
 class unique_ptr_only{
 public:

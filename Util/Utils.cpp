@@ -103,8 +103,7 @@ void Utils::SplitCmd(char *buff, char *cmd, const char *param)
         memcpy(cmd,cmd_temp,strlen(cmd_temp));
     }
 
-
-    char *param_temp = strtok(nullptr," ");
+    char *param_temp = strtok(nullptr,"\0");
     if(param_temp != nullptr){
         memcpy((void*)param,param_temp,strlen(param_temp));
     }

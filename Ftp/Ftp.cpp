@@ -12,8 +12,7 @@
 #include "MyThread.h"
 
 
-Ftp::Ftp()
-= default;
+Ftp::Ftp() = default;
 
 int Ftp::AddToLoop(std::shared_ptr<EventLoop> &loop) {
     loop_ = loop;
@@ -26,7 +25,7 @@ int Ftp::AddToLoop(std::shared_ptr<EventLoop> &loop) {
     //构造函数中不能调用这个shared_from_this
     auto func = [capture0 = shared_from_this()](int sockfd)->void{ capture0->FtpEvent(sockfd);};
     event->SetReadHandle(func);
-    return loop->AddEvent(std::move(event));
+    return loop_->AddEvent(std::move(event));
 }
 
 void Ftp::FtpEvent(int sockfd) {
@@ -65,7 +64,6 @@ void Ftp::FtpEvent(int sockfd) {
 
     client->epoll_ = next_thread->GetEpoll();
     next_thread->AddAsyncEventHandle(std::move(ctpCmdEvent));
-    //task_func中的捕获的参数没有复制构造函数，这个task没法构造
 
     PROXY_LOG_INFO("new client coming!!!");
 }
