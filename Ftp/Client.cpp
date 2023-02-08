@@ -241,12 +241,12 @@ int Client::ClientCmdHandle(char *cmd,char *param){
     }else if(strcmp(cmd,CMD_PASS) == 0){
         pass_ = param;
         /* 在这里进行简单认证，就先测试一下********************** */
-        if(userName_ == "ftpuser" && strcmp(param,"qasa55567") == 0){
+        if(Authenticated() == 0){
             //OK,如果代理这边认证通过了，那么代理就开始向服务端发起认证
             //代理这边认证通过了之后应该就可以确定资产了，然后代理连接对应的资产，OK
             //等到服务端认证通过了之后，代理才向客户端回复230成功或者530失败
             //行，先发送账号
-            int proxyToServerCmdSocket = Utils::ConnectToServer(ServerIP,SERVER_CMD_PORT);
+            int proxyToServerCmdSocket = Utils::ConnectToServer(serverIp_,SERVER_CMD_PORT);
             //如果连接失败了，直接关闭与客户端的连接
             if(proxyToServerCmdSocket < 0){
                 close(ctpCmdSocket_);
@@ -431,6 +431,23 @@ void Client::ProxyHandleData(const std::shared_ptr<SerializeProtoData>& serializ
     }else{
         PROXY_LOG_FATAL("unknown magic");
     }
+}
+
+int Client::Authenticated() {
+    auto position = userName_.find('@');
+    if(position == std::string::npos){
+        return -1;
+    }
+    std::string ip(userName_.begin()+position+1,userName_.end());
+    std::string realName(userName_.begin(),userName_.begin()+position);
+    userName_ = std::move(realName);
+    serverIp_ = std::move(ip);
+
+    if(userName_ != "ftpuser" || pass_ != "qasa55567"){
+        return -1;
+    }
+    //这里验证一下IP合不合法？
+    return 0;
 }
 
 int Client::CloseSocket(int &sockfd) {

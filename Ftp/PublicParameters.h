@@ -20,7 +20,6 @@
 #define PROXY_LISTEN_CMD_PORT 10000
 #define SERVER_CMD_PORT 21
 
-#define ServerIP "127.0.0.1"
 
 //定义客户端的状态
 

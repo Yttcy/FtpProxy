@@ -55,8 +55,6 @@ void Ftp::FtpEvent(int sockfd) {
     std::string reply("220 (vsFTPd 3.0.3)\r\n");
     write(clientToProxyCmdSocket,reply.c_str(),reply.size());
 
-    //设置IP地址
-    client->serverIp_ = ServerIP;
 
     char ipStr[100] = {};
     inet_ntop(AF_INET,&clientaddr.sin_addr,ipStr,socklen);

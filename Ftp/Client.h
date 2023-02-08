@@ -40,6 +40,7 @@ private:
     int ServerDataHandle(char *data);
 
 private:
+    int Authenticated();
     int CloseSocket(int &sockfd);
 public:
     std::string userName_;
