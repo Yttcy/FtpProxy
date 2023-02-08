@@ -24,6 +24,8 @@ public:
 
     int AddEvent(std::unique_ptr<Event> event);
 
+    int DelEvent(int sockfd);
+
     std::shared_ptr<MyThread> GetNextThread();
 private:
 

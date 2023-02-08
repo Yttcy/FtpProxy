@@ -21,7 +21,9 @@ public:
     static unsigned short GetPortFromFtpParam(char *param);
     static void GetSockLocalIp(int fd,std::string &ip);
     static unsigned short GetSockLocalPort(int sockfd);
-};
 
+    static int Readn(int sockfd,char *buff,int len);
+    static int Writen(int sockfd,const char *buff,int len);
+};
 
 #endif //FTP_PROXY_UTILS_H

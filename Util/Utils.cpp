@@ -9,8 +9,8 @@
 #include <fcntl.h>
 #include <cstring>
 #include <memory>
-
 #include <PublicParameters.h>
+#include <unistd.h>
 
 #define LISTEN_NUMBER 5
 #define IP_SIZE 100
@@ -54,7 +54,6 @@ void Utils::GetSockLocalIp(int fd,std::string& ip)
         p++;
     }
     ip = ipStr;
-
 }
 
 
@@ -135,7 +134,7 @@ int Utils::AcceptSocket(int cmd_socket,struct sockaddr *addr,socklen_t *addrlen)
         perror("accept() failed:");
         return fd;
     }
-
+    fcntl(fd,F_SETFL,O_NONBLOCK);
     return fd;
 }
 
@@ -153,12 +152,12 @@ int Utils::ConnectToServerByAddr(struct sockaddr_in servaddr)
     setsockopt(fd,SOL_SOCKET,SO_REUSEADDR, nullptr,0);
     if(fd < 0){
         perror("socket() failed :");
-        exit(1);
+        return -1;
     }
 
     if(bind(fd,(struct sockaddr *)&cliaddr,sizeof(cliaddr) ) < 0){
         perror("bind() failed :");
-        exit(1);
+        return -1;
     }
 
     servaddr.sin_family = AF_INET;
@@ -166,9 +165,9 @@ int Utils::ConnectToServerByAddr(struct sockaddr_in servaddr)
     //服务器直接退出就是不合理的
     if(connect(fd,(struct sockaddr *)&servaddr,sizeof(servaddr)) < 0){
         perror("connect() failed :");
-        exit(1);
+        return -1;
     }
-
+    fcntl(fd,F_SETFL,O_NONBLOCK);
     return fd;
 }
 
@@ -193,7 +192,7 @@ int Utils::ConnectToServer(const std::string& ip,unsigned short port)
         perror("connect() failed :");
         return -1;
     }
-
+    fcntl(fd,F_SETFL,O_NONBLOCK);
     return fd;
 }
 
@@ -227,4 +226,53 @@ int Utils::BindAndListenSocket(unsigned short port)
     }
 
     return fd;
+}
+
+int Utils::Readn(int fd,char *buff,int len){
+    ulong nleft = len;
+    int thisread = 0;
+    int readsum = 0;
+    char *ptr = (char *)buff;
+    while(nleft > 0){
+        if((thisread = read(fd,ptr,len)) < 0){
+            if(errno == EINTR){
+                thisread = 0;
+            }else if(errno == EAGAIN || errno == EWOULDBLOCK){
+                return readsum;
+            }else{
+                return -1;
+            }
+        }else if(thisread == 0){
+            break;
+        }
+        nleft -= thisread;
+        readsum += thisread;
+        ptr += thisread;
+    }
+    return readsum;
+}
+
+int Utils::Writen(int fd,const char *buff,int num){
+    int nleft = num;
+    int thiswrite = 0;
+    int writesum = 0;
+    char *ptr = (char *)buff;
+    while(nleft > 0){
+        if((thiswrite = write(fd,ptr,nleft)) <= 0){
+            if(errno == EINTR){
+                thiswrite = 0;
+                continue;
+            }else if(errno == EAGAIN || errno == EWOULDBLOCK){
+                continue;
+            }else{
+                return -1;
+            }
+        }
+        nleft -= thiswrite;
+        writesum += thiswrite;
+        ptr += thiswrite;
+    }
+    //这个是传入的直接是指针，所以可以直接返回
+    //指针已经被更新了
+    return writesum;
 }

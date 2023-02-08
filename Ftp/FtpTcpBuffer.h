@@ -6,6 +6,7 @@
 #define FTP_PROXY_TCPBUFFER_H
 
 #include <string>
+#include <vector>
 
 class FtpTcpBuffer {
 
@@ -26,7 +27,7 @@ private:
     bool JudgeStatusPart();
 
 private:
-    std::string buffer_; //TCP 缓冲区
+    std::vector<char> buffer_; //TCP 缓冲区
     int index_;
 };
 

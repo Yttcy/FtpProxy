@@ -24,10 +24,7 @@ void MyThread::Run() {
 }
 
 void MyThread::AddAsyncEventHandle(std::unique_ptr<Event> event) {
-    {
-        std::lock_guard<std::mutex> lockGuard(epoll_->GetLock());
-        epoll_->AddAsyncEventHandle(std::move(event));
-    }
+    epoll_->AddAsyncEventHandle(std::move(event));
     Notify();
 }
 

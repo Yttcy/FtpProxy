@@ -17,13 +17,16 @@ threadPool_(std::make_shared<MyThreadPool>())
 }
 
 void EventLoop::Start(){
-
     epoll_->Dispatch();
     //这里是事件环结束时需要进行的一些处理，暂时没有
 }
 
 int EventLoop::AddEvent(std::unique_ptr<Event> event) {
     return epoll_->AddEvent(std::move(event));
+}
+
+int EventLoop::DelEvent(int sockfd) {
+    return epoll_->DelEvent(sockfd);
 }
 
 std::shared_ptr<MyThread> EventLoop::GetNextThread(){

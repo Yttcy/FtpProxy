@@ -44,7 +44,6 @@ public:
 
     void AddAsyncTransHandle(Trans&& trans);
 
-    std::mutex& GetLock();
 
 private:
     std::mutex lock_;

@@ -17,6 +17,7 @@ class SerializeProtoData;
 class FtpTcpBuffer;
 
 
+//补个超时，421 Timeout
 typedef std::function<void(int)> Function;
 class Client :public std::enable_shared_from_this<Client>{
 public:
@@ -38,20 +39,22 @@ private:
     int ClientDataHandle(char *data);
     int ServerDataHandle(char *data);
 
+private:
+    int CloseSocket(int &sockfd);
 public:
     std::string userName_;
     std::string pass_;
 
     int status_{};
     //这个套接字对每个客户端都是唯一的
-    int proxyListenCmdSocket_{};
+    int pListenCmdSocket_{};
 
     //下面每个客户端都不是一样的了
-    int clientToProxyCmdSocket_{};
-    int proxyToServerCmdSocket_{};
-    int proxyListenDataSocket_{};
-    int clientToProxyDataSocket_{};
-    int proxyToServerDataSocket_{};
+    int ctpCmdSocket_{};
+    int ptsCmdSocket_{};
+    int pListenDataSocket_{};
+    int ctpDataSocket_{};
+    int ptsDataSocket_{};
 
     std::string lastCmd_;
 

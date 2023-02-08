@@ -124,14 +124,10 @@ void Epoll::WriteHandle(){
 }
 
 void Epoll::AddAsyncEventHandle(std::unique_ptr<Event> event){
+    std::lock_guard<std::mutex> lockGuard(lock_);
     eventhandle_.push_back(std::move(event));
 }
 
 void Epoll::AddAsyncTransHandle(Trans &&trans) {
     transHandle_.push_back(trans);
-}
-
-
-std::mutex& Epoll::GetLock() {
-    return lock_;
 }

@@ -13,7 +13,15 @@
 #include <Thread/MyThread.h>
 #include <cassert>
 
-Client::Client() = default;
+Client::Client():
+ctpCmdSocket_(-1),
+ptsCmdSocket_(-1),
+pListenDataSocket_(-1),
+ctpDataSocket_(-1),
+ptsDataSocket_(-1)
+{
+
+};
 
 std::shared_ptr<Client> Client::GetClientPtr(){
     return shared_from_this();
@@ -24,23 +32,14 @@ void Client::CtpCmdReadCb(int sockfd){
 
     char buff[BUFFSIZE] = {0};
     //如果读不到内容，那么就关闭套接字，同时从epoll轮询中去掉，clientSocket和ftpServerSocket
-    if (read(sockfd, buff, BUFFSIZE) == 0){
-
+    int n = Utils::Readn(sockfd,buff,BUFFSIZE);
+    if(n <= 0){
         PROXY_LOG_WARN("client[%d] close the cmd connect!!!",sockfd);
         //socket关闭后，从epoll轮询中去掉客户端控制连接的套接字
-        epoll_->DelEvent(clientToProxyCmdSocket_);
-        close(sockfd);
 
-        //没准这时候还没有创建这个socket呢。。。。
-        if(status_ >= STATUS_PASS_AUTHENTICATED){
-            epoll_->DelEvent(proxyToServerCmdSocket_);
-            close(proxyToServerCmdSocket_);
-        }
-
-        if(status_ >= STATUS_PROXYDATA_LISTEN){
-            epoll_->DelEvent(proxyListenDataSocket_);
-            close(proxyListenDataSocket_);
-        }
+        CloseSocket(ctpCmdSocket_);
+        CloseSocket(ptsCmdSocket_);
+        CloseSocket(pListenDataSocket_);
 
         status_ = STATUS_DISCONNECTED;
         return;
@@ -54,7 +53,7 @@ void Client::CtpCmdReadCb(int sockfd){
         //这里需要处理，必须要读到一次完整的命令，才可以做协议解析，反正就默认最大是1024个字节
         cmdBuffer_ += buff;
         int ret = cmdBuffer_.JudgeCmd();
-        if(ret != 0){
+        if(ret < 0){
             return;
         }
         std::string res = cmdBuffer_.GetCompleteCmd();
@@ -79,50 +78,43 @@ void Client::PtsCmdReadCb(int sockfd){
     char buff[BUFFSIZE] = {0};
 
     //这大概就是客户端关闭了连接，发送了QUIT命令之类的
-    if(read(sockfd,buff,BUFFSIZE) == 0){
+    int n = Utils::Readn(sockfd,buff,BUFFSIZE);
+    if(n <= 0){
         PROXY_LOG_WARN("server[%d] close the cmd connect!!!",sockfd);
 
 
-        epoll_->DelEvent(clientToProxyCmdSocket_);
-        close(clientToProxyCmdSocket_);
-
-        if(status_ >= STATUS_PASS_AUTHENTICATED){
-            epoll_->DelEvent(proxyToServerCmdSocket_);
-            close(proxyToServerCmdSocket_);
-        }
-
-        if(status_ >= STATUS_PROXYDATA_LISTEN){
-            epoll_->DelEvent(proxyListenDataSocket_);
-            close(proxyListenDataSocket_);
-        }
+        CloseSocket(ctpCmdSocket_);
+        CloseSocket(ptsCmdSocket_);
+        CloseSocket(pListenDataSocket_);
 
         status_ = STATUS_DISCONNECTED;
         return;
+
+    }else{
+        PROXY_LOG_INFO("reply received from server : %s",buff);
+        //处理ftp服务器的Response,如果有多行，暂时拿第一个状态码作为cmd，后面都是param，包括第一行的-
+        //////////
+
+        statusBuffer_ += buff;
+        int ret = statusBuffer_.JudgeStatus();
+        if(ret < 0){
+            return;
+        }
+        std::string res = statusBuffer_.GetCompleteStatus();
+
+        PROXY_LOG_ERROR("server complete status:%s",res.c_str());
+
+        Data data{};
+        memset(&data,0,sizeof(data));
+        Utils::SplitStatus(res.data(), data.u.status.status,data.u.status.param);
+
+        //OK,将这个数据交给上层来处理，也就是这个线程对应的Epoll返回的时候来处理这个任务
+        auto protoData = std::make_shared<SerializeProtoData>(MAGIC_SERVER,TYPE_STATUS,data);
+
+        Trans trans{[capture0 = GetClientPtr()](auto && PH1) { capture0->ProxyHandleData(std::forward<decltype(PH1)>(PH1)); },protoData};
+
+        this->thread_->AddAsyncTransHandle(std::move(trans));
     }
-
-    PROXY_LOG_INFO("reply received from server : %s",buff);
-    //处理ftp服务器的Response,如果有多行，暂时拿第一个状态码作为cmd，后面都是param，包括第一行的-
-    //////////
-
-    statusBuffer_ += buff;
-    int ret = statusBuffer_.JudgeStatus();
-    if(ret != 0){
-        return;
-    }
-    std::string res = statusBuffer_.GetCompleteStatus();
-
-    PROXY_LOG_ERROR("server complete status:%s",res.c_str());
-
-    Data data{};
-    memset(&data,0,sizeof(data));
-    Utils::SplitStatus(res.data(), data.u.status.status,data.u.status.param);
-
-    //OK,将这个数据交给上层来处理，也就是这个线程对应的Epoll返回的时候来处理这个任务
-    auto protoData = std::make_shared<SerializeProtoData>(MAGIC_SERVER,TYPE_STATUS,data);
-
-    Trans trans{[capture0 = GetClientPtr()](auto && PH1) { capture0->ProxyHandleData(std::forward<decltype(PH1)>(PH1)); },protoData};
-
-    this->thread_->AddAsyncTransHandle(std::move(trans));
 }
 
 
@@ -135,30 +127,30 @@ void Client::ProxyListenDataReadCb(int sockfd) {
 
     if(pasv_mode == 1){ //被动模式
         int clientToProxyDataSocket = Utils::AcceptSocket(sockfd,nullptr,nullptr);        //client <-> proxy
-        clientToProxyDataSocket_ = clientToProxyDataSocket;
+        ctpDataSocket_ = clientToProxyDataSocket;
         clientToProxyDataSocketEvent = Event::create(clientToProxyDataSocket);
         clientToProxyDataSocketEvent->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->CtpDataReadCb(std::forward<decltype(PH1)>(PH1)); });
 
         int proxyToServerDataSocket = Utils::ConnectToServer(serverIp_,serverDataPort_);
-        proxyToServerDataSocket_ = proxyToServerDataSocket;
+        ptsDataSocket_ = proxyToServerDataSocket;
         proxyToServerDataSocketEvent = Event::create(proxyToServerDataSocket);
         proxyToServerDataSocketEvent->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->PtsDataReadCb(std::forward<decltype(PH1)>(PH1)); });
     }
     else if(pasv_mode == 2){    //主动模式,服务器连接过来了
-        int proxyToServerDataSocket = Utils::AcceptSocket(proxyListenDataSocket_,nullptr,nullptr);        //proxy <-> server
-        proxyToServerDataSocket_ = proxyToServerDataSocket;
+        int proxyToServerDataSocket = Utils::AcceptSocket(pListenDataSocket_,nullptr,nullptr);        //proxy <-> server
+        ptsDataSocket_ = proxyToServerDataSocket;
         proxyToServerDataSocketEvent = Event::create(proxyToServerDataSocket);
         proxyToServerDataSocketEvent->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->PtsDataReadCb(std::forward<decltype(PH1)>(PH1)); });
 
         struct sockaddr_in cliaddr{};
         socklen_t clilen = sizeof(cliaddr);
         //这就假设port命令发出作为数据连接的IP地址 就是客户端的地址了
-        if(getpeername(clientToProxyCmdSocket_,(struct sockaddr *)&cliaddr,&clilen) < 0){
+        if(getpeername(ctpCmdSocket_,(struct sockaddr *)&cliaddr,&clilen) < 0){
             perror("getpeername() failed: ");
         }
         cliaddr.sin_port = htons(clientDataPort_);
         int clientToProxyDataSocket = Utils::ConnectToServerByAddr(cliaddr); //client <-> proxy
-        clientToProxyDataSocket_ = clientToProxyDataSocket;
+        ctpDataSocket_ = clientToProxyDataSocket;
         clientToProxyDataSocketEvent = Event::create(clientToProxyDataSocket);
         clientToProxyDataSocketEvent->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->CtpDataReadCb(std::forward<decltype(PH1)>(PH1)); });
     }else{
@@ -173,23 +165,15 @@ void Client::ProxyListenDataReadCb(int sockfd) {
 
 //处理客户端数据到来的情况
 void Client::CtpDataReadCb(int sockfd){
-    long n;
     char buff[BUFFSIZE] = {0};
-    if((n = read(sockfd,buff,BUFFSIZE)) == 0){
-        PROXY_LOG_WARN("client[%d] close the data socket",clientToProxyDataSocket_);
-
-
-        epoll_->DelEvent(clientToProxyDataSocket_);
-        close(clientToProxyDataSocket_);
-
-        epoll_->DelEvent(proxyToServerDataSocket_);
-        close(proxyToServerDataSocket_);
+    int n = Utils::Readn(sockfd,buff,BUFFSIZE);
+    if(n <= 0){
+        CloseSocket(ctpDataSocket_);
+        CloseSocket(ptsDataSocket_);
 
         if(status_ >= STATUS_PASS_AUTHENTICATED){
             status_ = STATUS_PASS_AUTHENTICATED;
         }
-
-
     }else{
         Data data{};
         memset(&data,0,sizeof(data));
@@ -205,17 +189,13 @@ void Client::CtpDataReadCb(int sockfd){
 
 //这里有点问题，服务端断开连接的同时，客户端也会断开连接，这样的话，close没有关系，但是epoll清除就会有问题，暂时先不管
 void Client::PtsDataReadCb(int sockfd){
-    long n;
     char buff[BUFFSIZE] = {0};
-    if((n = read(sockfd,buff,BUFFSIZE)) == 0){
-        PROXY_LOG_WARN("server[%d] close the data socket",proxyToServerDataSocket_);
+    int n = Utils::Readn(sockfd,buff,BUFFSIZE);
+    if(n <= 0){
+        PROXY_LOG_WARN("server[%d] close the data socket",ptsDataSocket_);
 
-        epoll_->DelEvent(clientToProxyDataSocket_);
-        close(clientToProxyDataSocket_);
-
-        epoll_->DelEvent(proxyToServerDataSocket_);
-        close(proxyToServerDataSocket_);
-
+        CloseSocket(ctpDataSocket_);
+        CloseSocket(ptsDataSocket_);
 
         if(status_ >= STATUS_PASS_AUTHENTICATED)
             status_ = STATUS_PASS_AUTHENTICATED;
@@ -243,21 +223,21 @@ int Client::ClientCmdHandle(char *cmd,char *param){
     //如果是客户端开启主动模式的命令
     char buff[BUFFSIZE];
     bzero(buff,BUFFSIZE);
-    int targetSocket = proxyToServerCmdSocket_;
+    int targetSocket = ptsCmdSocket_;
     std::string reply;
     lastCmd_ = std::move(std::string(cmd));
     if(strcmp(cmd,CMD_USER) == 0){
-        targetSocket = clientToProxyCmdSocket_;
+        targetSocket = ctpCmdSocket_;
         if(status_ >= STATUS_PASS_AUTHENTICATED){
             reply = "530 Can't change to another user.\r\n";
-            write(targetSocket,reply.c_str(),reply.length());
+            Utils::Writen(targetSocket,reply.c_str(),reply.length());
             return 0;
         }
         userName_ = param;
         status_ = STATUS_USER_INPUTTED;
         reply = "331 Please specify the password.\r\n";
         strcpy(buff,reply.c_str());
-        write(targetSocket,reply.c_str(),reply.length());
+        Utils::Writen(targetSocket,reply.c_str(),reply.length());
     }else if(strcmp(cmd,CMD_PASS) == 0){
         pass_ = param;
         /* 在这里进行简单认证，就先测试一下********************** */
@@ -269,28 +249,28 @@ int Client::ClientCmdHandle(char *cmd,char *param){
             int proxyToServerCmdSocket = Utils::ConnectToServer(ServerIP,SERVER_CMD_PORT);
             //如果连接失败了，直接关闭与客户端的连接
             if(proxyToServerCmdSocket < 0){
-                close(clientToProxyCmdSocket_);
+                close(ctpCmdSocket_);
                 return 0;
             }
 
             auto ptsCmdEvent = Event::create(proxyToServerCmdSocket);
             ptsCmdEvent->SetReadHandle([capture0 = GetClientPtr()](auto && PH1){ capture0->PtsCmdReadCb(std::forward<decltype(PH1)>(PH1)); });
-            proxyToServerCmdSocket_ = proxyToServerCmdSocket;
+            ptsCmdSocket_ = proxyToServerCmdSocket;
             Utils::GetSockLocalIp(proxyToServerCmdSocket,proxyIp_);
             thread_->AddAsyncEventHandle(std::move(ptsCmdEvent));
 
             sprintf(buff,"USER %s\r\n",userName_.c_str());
-            targetSocket = proxyToServerCmdSocket_;
+            targetSocket = ptsCmdSocket_;
             status_ = STATUS_PASS_AUTHENTICATED;
             reply = buff;
-            write(targetSocket,reply.c_str(),reply.length());
+            Utils::Writen(targetSocket,reply.c_str(),reply.length());
             return 0;
         }else{
             //如果认证失败了，就直接发给客户端530
             reply = "530 Login incorrect.\r\n";
-            targetSocket = clientToProxyCmdSocket_;
+            targetSocket = ctpCmdSocket_;
             strcpy(buff,reply.c_str());
-            write(targetSocket,reply.c_str(),reply.length());
+            Utils::Writen(targetSocket,reply.c_str(),reply.length());
         }
     }else if(strcmp(cmd,CMD_QUIT) == 0){
         //这个QUIT不能简单的直接转发给服务器，还要根据连接进行到哪一步来看。
@@ -299,20 +279,20 @@ int Client::ClientCmdHandle(char *cmd,char *param){
             DoNothingForCmd(buff,cmd,param);
             reply = buff;
             PROXY_LOG_DEBUG("send to server:%s",buff);
-            write(targetSocket,reply.c_str(),reply.length());
+            Utils::Writen(targetSocket,reply.c_str(),reply.length());
             return 0;
         }
         reply = "221 Goodbye.\r\n";
-        targetSocket = clientToProxyCmdSocket_;
-        write(targetSocket,reply.c_str(),reply.length());
-        epoll_->DelEvent(clientToProxyCmdSocket_);
-        close(clientToProxyCmdSocket_);
+        targetSocket = ctpCmdSocket_;
+        Utils::Writen(targetSocket,reply.c_str(),reply.length());
+        epoll_->DelEvent(ctpCmdSocket_);
+        close(ctpCmdSocket_);
         return 0;
     }else{
         if(status_ < STATUS_PASS_AUTHENTICATED){
             reply = "530 Please login with USER and PASS.\r\n";
-            targetSocket = clientToProxyCmdSocket_;
-            write(targetSocket,reply.c_str(),reply.length());
+            targetSocket = ctpCmdSocket_;
+            Utils::Writen(targetSocket,reply.c_str(),reply.length());
         }
     }
 
@@ -328,7 +308,7 @@ int Client::ClientCmdHandle(char *cmd,char *param){
         int proxyListenDataSocket = Utils::BindAndListenSocket(0); //开启proxyListenDataSocket、bind（）、listen操作
         status_ = STATUS_PROXYDATA_LISTEN;
         proxyDataPort_ = Utils::GetSockLocalPort(proxyListenDataSocket); //这个端口是代理服务器随机生成的
-        proxyListenDataSocket_ = proxyListenDataSocket;
+        pListenDataSocket_ = proxyListenDataSocket;
         auto proxyListenDataSocketEvent = Event::create(proxyListenDataSocket);
         proxyListenDataSocketEvent->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->ProxyListenDataReadCb(std::forward<decltype(PH1)>(PH1)); });
         epoll_->AddEvent(std::move(proxyListenDataSocketEvent));
@@ -347,7 +327,7 @@ int Client::ClientCmdHandle(char *cmd,char *param){
     }
 
     PROXY_LOG_DEBUG("send to server:%s",buff);
-    write(targetSocket,buff,strlen(buff));
+    Utils::Writen(targetSocket,buff,strlen(buff));
     return 0;
 }
 
@@ -358,13 +338,13 @@ int Client::ServerStatusHandle(char *status,char *param){
 
     char buff[BUFFSIZE];
     bzero(buff,BUFFSIZE);
-    int targetSocket = clientToProxyCmdSocket_;
+    int targetSocket = ctpCmdSocket_;
     if(lastCmd_ == CMD_PASV){
         if(strcmp(status,"227") == 0){
             pasv_mode = 1;
             int proxyListenDataSocket = Utils::BindAndListenSocket(0); //开启proxyListenDataSocket、bind（）、listen操作
             status_ = STATUS_PROXYDATA_LISTEN;
-            proxyListenDataSocket_ = proxyListenDataSocket;
+            pListenDataSocket_ = proxyListenDataSocket;
             auto proxyListenDataSocketEvent = Event::create(proxyListenDataSocket);
             proxyListenDataSocketEvent->SetReadHandle([capture0 = GetClientPtr()](auto && PH1) { capture0->ProxyListenDataReadCb(std::forward<decltype(PH1)>(PH1)); });
             //这是本地随机生成的端口号
@@ -380,11 +360,11 @@ int Client::ServerStatusHandle(char *status,char *param){
     }else if(lastCmd_ == CMD_PASS){
         //这是代理向服务端发送了账号之后
         if(strcmp(status,"331") == 0){
-            targetSocket = proxyToServerCmdSocket_;
+            targetSocket = ptsCmdSocket_;
             sprintf(buff,"PASS %s\r\n",pass_.c_str());
         }
         if(strcmp(status,"230") == 0){
-            targetSocket = clientToProxyCmdSocket_;
+            targetSocket = ctpCmdSocket_;
             sprintf(buff,"%s%s\r\n",status,param);
         }
         //这个代表代理连接服务器成功了
@@ -392,13 +372,13 @@ int Client::ServerStatusHandle(char *status,char *param){
             return 0;
         }
     }else{
-        targetSocket = clientToProxyCmdSocket_;
+        targetSocket = ctpCmdSocket_;
         sprintf(buff,"%s%s\r\n",status,param);
     }
 
-    assert(targetSocket != 0);
+    assert(targetSocket > 0);
     PROXY_LOG_DEBUG("send to client:%s",buff);
-    write(targetSocket,buff,strlen(buff));
+    Utils::Writen(targetSocket,buff,strlen(buff));
     return 0;
 }
 
@@ -406,13 +386,13 @@ int Client::ServerStatusHandle(char *status,char *param){
 //现在是什么都不做，就先直接发送就可以了
 int Client::ClientDataHandle(char *data) {
     //这个应该在那个联合数据里指定这个data的长度
-    write(proxyToServerDataSocket_,data,strlen(data));
+    Utils::Writen(ptsDataSocket_,data,strlen(data));
     return 0;
 }
 
 //这个也是直接发送
 int Client::ServerDataHandle(char *data) {
-    write(clientToProxyDataSocket_,data,strlen(data));
+    Utils::Writen(ctpDataSocket_,data,strlen(data));
     return 0;
 }
 
@@ -451,4 +431,14 @@ void Client::ProxyHandleData(const std::shared_ptr<SerializeProtoData>& serializ
     }else{
         PROXY_LOG_FATAL("unknown magic");
     }
+}
+
+int Client::CloseSocket(int &sockfd) {
+    if(sockfd < 0){
+        return 0;
+    }
+    int ret = epoll_->DelEvent(sockfd);
+    close(sockfd);
+    sockfd = -1;
+    return ret;
 }

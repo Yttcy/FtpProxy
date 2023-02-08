@@ -3,6 +3,7 @@
 //
 
 #include "FtpTcpBuffer.h"
+#include <algorithm>
 
 
 FtpTcpBuffer::FtpTcpBuffer():
@@ -12,13 +13,17 @@ index_(0)
 
 }
 
+//这里会不会有点慢
 FtpTcpBuffer& FtpTcpBuffer::operator+=(char *buff) {
-    buffer_ += buff;
+    while(*buff){
+        buffer_.emplace_back(*buff);
+        ++buff;
+    }
     return *this;
 }
 
 int FtpTcpBuffer::JudgeCmd() {
-    int length = buffer_.length();
+    int length = buffer_.size();
     for(size_t i = index_; i < length; ++i ){
         if(buffer_[i] == '\n'){
             if(i > 0 && buffer_[i-1] == '\r'){
@@ -65,15 +70,18 @@ bool FtpTcpBuffer::JudgeStatusPart(){
 
 int FtpTcpBuffer::JudgeStatus() {
 
-    size_t position = buffer_.find_first_of("\r\n",index_);
+    auto position = std::find(buffer_.begin(),buffer_.end(),'\n');
+    if(position == buffer_.begin() || *(position-1) != '\r'){
+        position = buffer_.end();
+    }
 
-    if(position == std::string::npos){
+    if(position == buffer_.end()){
         return -1;
-    }else if(position - index_ > 3 && JudgeStatusPart()){  //如果多行内容只是的某一行\r\n
-        index_ = position + 2;
+    }else if(position - buffer_.begin() > 3 && JudgeStatusPart()){  //如果多行内容只是的某一行\r\n
+        index_ = position - buffer_.begin() + 1;
         return 0;
     }else{
-        index_ = position + 2;
+        index_ = position - buffer_.begin()+ 1;
         return JudgeStatus();
     }
 }

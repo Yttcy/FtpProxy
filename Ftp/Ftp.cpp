@@ -28,6 +28,11 @@ int Ftp::AddToLoop(std::shared_ptr<EventLoop> &loop) {
     return loop_->AddEvent(std::move(event));
 }
 
+int Ftp::DelFromLoop() {
+    assert(loop_ != nullptr);
+    return loop_->DelEvent(listenCmdSocket_);
+}
+
 void Ftp::FtpEvent(int sockfd) {
     assert(sockfd != 0);
 
@@ -36,7 +41,7 @@ void Ftp::FtpEvent(int sockfd) {
     //同样的
     client->proxyCmdPort_ = PROXY_LISTEN_CMD_PORT;
     client->serverCmdPort_ = SERVER_CMD_PORT;
-    client->proxyListenCmdSocket_ = listenCmdSocket_;
+    client->pListenCmdSocket_ = listenCmdSocket_;
 
     //代理服务器accept客户端到来的控制连接请求，等待认证通过了再去连接服务器，那么就主服务器完成认证吗
     //也就是其它线程不处理USER 和 PASS之外的命令
@@ -46,7 +51,7 @@ void Ftp::FtpEvent(int sockfd) {
     client->status_ = STATUS_CONNECTED;
     auto ctpCmdEvent = Event::create(clientToProxyCmdSocket);
     ctpCmdEvent->SetReadHandle([capture0 = client->GetClientPtr()](auto && PH1) { capture0->CtpCmdReadCb(std::forward<decltype(PH1)>(PH1)); });
-    client->clientToProxyCmdSocket_ = clientToProxyCmdSocket;
+    client->ctpCmdSocket_ = clientToProxyCmdSocket;
     std::string reply("220 (vsFTPd 3.0.3)\r\n");
     write(clientToProxyCmdSocket,reply.c_str(),reply.size());
 

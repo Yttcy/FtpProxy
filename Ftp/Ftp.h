@@ -13,6 +13,7 @@ class Ftp :public std::enable_shared_from_this<Ftp>{
 public:
     explicit Ftp();
     int AddToLoop(std::shared_ptr<EventLoop> &loop);
+    int DelFromLoop();
 private:
     void FtpEvent(int sockfd);
 
