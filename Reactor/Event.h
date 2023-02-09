@@ -10,19 +10,10 @@
 #include <optional>
 #include <memory>
 
+#include "Utils.h"
 
-//继承这个就只能通过create创建了
-template<typename T>
-class unique_ptr_only{
-public:
-    typedef std::unique_ptr<T> uniquePtr;
 
-    template<typename... Args>
-    static typename unique_ptr_only<T>::uniquePtr create(Args&&... args){
-        return std::unique_ptr<T>(new T(args...));
-    }
 
-};
 
 typedef std::function<void(int)> Function;
 class Event:public unique_ptr_only<Event>{

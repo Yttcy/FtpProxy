@@ -218,6 +218,22 @@ static void DoNothingForCmd(char *buff,char *cmd,char *param){
     sprintf(buff,"%s %s\r\n",cmd,param);
 }
 
+//如果是超时，一般是等到下一个客户端命令到来的时候，才回复给客户端421timeout
+//如果超时了，直接关闭连接也OK的。
+void Client::HandleTimeout() {
+    PROXY_LOG_WARN("client[%d] timeout !!!",ctpCmdSocket_);
+    //socket关闭后，从epoll轮询中去掉客户端控制连接的套接字
+    std::string reply = "421 timeout.\r\n";
+    Utils::Writen(ctpCmdSocket_,reply.c_str(),reply.length());
+    CloseSocket(ctpCmdSocket_);
+    CloseSocket(ptsCmdSocket_);
+    CloseSocket(pListenDataSocket_);
+    CloseSocket(ctpDataSocket_);
+    CloseSocket(ptsDataSocket_);
+
+    status_ = STATUS_DISCONNECTED;
+}
+
 
 int Client::ClientCmdHandle(char *cmd,char *param){
     //如果是客户端开启主动模式的命令
@@ -401,6 +417,9 @@ void Client::ProxyHandleData(const std::shared_ptr<SerializeProtoData>& serializ
     char type = serializeProtoData->GetType();
     Data data = serializeProtoData->GetData();
 
+    //收到了数据，更新一下超时时间
+    timeout_->Update(CLIENT_TIMEOUT);
+
     //如果是客户端
     if(magic == MAGIC_CLIENT){
         switch(type){
@@ -435,8 +454,10 @@ void Client::ProxyHandleData(const std::shared_ptr<SerializeProtoData>& serializ
 
 int Client::Authenticated() {
     auto position = userName_.find('@');
+    //没找到就先使用默认的IP地址
     if(position == std::string::npos){
-        return -1;
+        serverIp_ = "127.0.0.1";
+        return 0;
     }
     std::string ip(userName_.begin()+position+1,userName_.end());
     std::string realName(userName_.begin(),userName_.begin()+position);

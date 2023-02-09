@@ -224,7 +224,7 @@ int Utils::BindAndListenSocket(unsigned short port)
         perror("listen() failed: ");
         exit(1);
     }
-
+    fcntl(fd,F_SETFL,O_NONBLOCK);
     return fd;
 }
 

@@ -15,21 +15,28 @@
 class MyThread;
 class SerializeProtoData;
 class FtpTcpBuffer;
+class TimeNode;
 
 
+//一个客户端为一个超时单位，但是客户端的生命周期也被Event管理着
 //补个超时，421 Timeout
 typedef std::function<void(int)> Function;
-class Client :public std::enable_shared_from_this<Client>{
-public:
+class Client :public std::enable_shared_from_this<Client>,
+        public shared_ptr_only<Client>{
+    friend class shared_ptr_only<Client>;
+private:
     explicit Client();
-    std::shared_ptr<Client> GetClientPtr();
+
 public:
+    std::shared_ptr<Client> GetClientPtr();
 
     void CtpCmdReadCb(int sockfd); //客户端到代理服务器的控制连接回调
     void PtsCmdReadCb(int sockfd); //代理服务器到ftp服务器的控制连接回调
     void ProxyListenDataReadCb(int sockfd); //代理服务器的数据连接监听回调
     void CtpDataReadCb(int sockfd); //客户端到代理服务器数据连接回调
     void PtsDataReadCb(int sockfd); //代理服务器到ftp服务器数据连接回调
+
+    void HandleTimeout(); //客户端的超时处理
 
 private:
     void ProxyHandleData(const std::shared_ptr<SerializeProtoData>& serializeProtoData);
@@ -46,11 +53,9 @@ public:
     std::string userName_;
     std::string pass_;
 
+    std::shared_ptr<TimeNode> timeout_; //超时
     int status_{};
-    //这个套接字对每个客户端都是唯一的
-    int pListenCmdSocket_{};
 
-    //下面每个客户端都不是一样的了
     int ctpCmdSocket_{};
     int ptsCmdSocket_{};
     int pListenDataSocket_{};

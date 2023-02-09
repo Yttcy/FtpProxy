@@ -9,9 +9,11 @@
 #include "Event.h"
 #include <memory>
 
-class Ftp :public std::enable_shared_from_this<Ftp>{
-public:
+class Ftp :public std::enable_shared_from_this<Ftp>,
+        public shared_ptr_only<Ftp>{
+    friend class shared_ptr_only<Ftp>;
     explicit Ftp();
+public:
     int AddToLoop(std::shared_ptr<EventLoop> &loop);
     int DelFromLoop();
 private:

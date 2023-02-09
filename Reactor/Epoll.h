@@ -14,6 +14,7 @@
 #include <utility>
 
 #include "Event.h"
+#include "Time.h"
 
 class Client;
 class SerializeProtoData;
@@ -44,6 +45,7 @@ public:
 
     void AddAsyncTransHandle(Trans&& trans);
 
+    void AddTimer(std::shared_ptr<TimeNode>& node);
 
 private:
     std::mutex lock_;
@@ -52,7 +54,7 @@ private:
     int epollFd_; //epoll专用的描述符
     int socketNum_; //epoll中的描述符数量
     std::unordered_map<int,std::unique_ptr<Event>> socketMappingToEvent_; //套接字到事件的映射
+    TimeManager timeManager_; //定时管理器
 };
-
 
 #endif //FTP_PROXY_EPOLL_H

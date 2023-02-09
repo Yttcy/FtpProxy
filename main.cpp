@@ -9,7 +9,7 @@ int main(){
     //初始化事件环
     auto loop = std::make_shared<EventLoop>();
 
-    auto ftpProxy = std::make_shared<Ftp>();
+    auto ftpProxy = Ftp::create();
     ftpProxy->AddToLoop(loop);
 
     loop->Start();

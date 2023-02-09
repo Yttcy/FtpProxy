@@ -7,11 +7,9 @@
 
 #include "Epoll.h"
 #include "Event.h"
-#include "Util/Log.h"
+#include "Log.h"
+#include "PublicParameters.h"
 #include <Client.h>
-
-#define EPOLL_MAX_FD 1024
-#define EPOLL_TIMEOUT 600
 
 Epoll::Epoll():
 epollFd_(epoll_create(10)),
@@ -75,26 +73,26 @@ void Epoll::Dispatch(){
 
     do{
         epoll_event retEvent[EPOLL_MAX_FD+1];
-        int nReady = epoll_wait(epollFd_,retEvent,EPOLL_MAX_FD+1,EPOLL_TIMEOUT * 1000);
+        int nReady = epoll_wait(epollFd_,retEvent,EPOLL_MAX_FD+1,EPOLL_TIMEOUT);
 
-        if(nReady < 0){
-            PROXY_LOG_ERROR("epoll_wait error: %s",strerror(errno));
-            continue;
-        }
 
-        if(nReady == 0){
-            PROXY_LOG_INFO("epoll_wait timeout!!!");
-            continue;
-        }
-
-        for(int i=0;i<nReady;++i){
-            int sock = retEvent[i].data.fd;
-            if(socketMappingToEvent_[sock] != nullptr){
-                socketMappingToEvent_[sock]->Handle(retEvent[i]);
+        do{
+            if(nReady < 0){
+                PROXY_LOG_ERROR("epoll_wait error: %s",strerror(errno));
+                break;
             }
-        }
 
-        [&]()->void{
+            if(nReady == 0){
+                PROXY_LOG_INFO("epoll_wait timeout!!!");
+                break;
+            }
+
+            for(int i=0;i<nReady;++i){
+                int sock = retEvent[i].data.fd;
+                if(socketMappingToEvent_[sock] != nullptr){
+                    socketMappingToEvent_[sock]->Handle(retEvent[i]);
+                }
+            }
 
             //处理read调用返回的数据
             for(auto tran:transHandle_){
@@ -112,8 +110,10 @@ void Epoll::Dispatch(){
             for(auto iter = tasks.begin();iter != tasks.end();++iter){
                 AddEvent(std::move(*iter));
             }
+        }while(false);
 
-        }();
+        //处理超时任务
+        timeManager_.HandleExpiredEvents();
 
     }while(true);
 
@@ -130,4 +130,8 @@ void Epoll::AddAsyncEventHandle(std::unique_ptr<Event> event){
 
 void Epoll::AddAsyncTransHandle(Trans &&trans) {
     transHandle_.push_back(trans);
+}
+
+void Epoll::AddTimer(std::shared_ptr<TimeNode>& node) {
+    timeManager_.AddTimeNode(node);
 }

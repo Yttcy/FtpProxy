@@ -7,7 +7,9 @@
 #include <arpa/inet.h>
 #include <cassert>
 #include "Ftp.h"
-#include "Util/Log.h"
+#include "Utils.h"
+#include "Log.h"
+#include "Time.h"
 #include "PublicParameters.h"
 #include "MyThread.h"
 
@@ -36,12 +38,11 @@ int Ftp::DelFromLoop() {
 void Ftp::FtpEvent(int sockfd) {
     assert(sockfd != 0);
 
-    auto client = std::make_shared<Client>();
+    auto client = Client::create();
     client->status_ = STATUS_DISCONNECTED;
     //同样的
     client->proxyCmdPort_ = PROXY_LISTEN_CMD_PORT;
     client->serverCmdPort_ = SERVER_CMD_PORT;
-    client->pListenCmdSocket_ = listenCmdSocket_;
 
     //代理服务器accept客户端到来的控制连接请求，等待认证通过了再去连接服务器，那么就主服务器完成认证吗
     //也就是其它线程不处理USER 和 PASS之外的命令
@@ -52,9 +53,11 @@ void Ftp::FtpEvent(int sockfd) {
     auto ctpCmdEvent = Event::create(clientToProxyCmdSocket);
     ctpCmdEvent->SetReadHandle([capture0 = client->GetClientPtr()](auto && PH1) { capture0->CtpCmdReadCb(std::forward<decltype(PH1)>(PH1)); });
     client->ctpCmdSocket_ = clientToProxyCmdSocket;
+
+    /*****************暂时先加在这里********************************/
     std::string reply("220 (vsFTPd 3.0.3)\r\n");
     write(clientToProxyCmdSocket,reply.c_str(),reply.size());
-
+    /*****************暂时先加在这里********************************/
 
     char ipStr[100] = {};
     inet_ntop(AF_INET,&clientaddr.sin_addr,ipStr,socklen);
@@ -67,6 +70,11 @@ void Ftp::FtpEvent(int sockfd) {
 
     client->epoll_ = next_thread->GetEpoll();
     next_thread->AddAsyncEventHandle(std::move(ctpCmdEvent));
+
+    auto timeNode = TimeNode::create(client,5000);
+    client->timeout_ = timeNode;
+    client->epoll_->AddTimer(timeNode);
+
 
     PROXY_LOG_INFO("new client coming!!!");
 }
