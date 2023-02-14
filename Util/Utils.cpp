@@ -257,6 +257,11 @@ int Utils::Writen(int fd,const char *buff,int num){
     int thiswrite = 0;
     int writesum = 0;
     char *ptr = (char *)buff;
+
+    int oldFlags = fcntl(fd,F_GETFL);
+    int newFlags = oldFlags & (~O_NONBLOCK); //去掉flag的O_NONBLOCK属性
+    fcntl(fd,F_SETFL,newFlags);
+
     while(nleft > 0){
         if((thiswrite = write(fd,ptr,nleft)) <= 0){
             if(errno == EINTR){
@@ -265,6 +270,7 @@ int Utils::Writen(int fd,const char *buff,int num){
             }else if(errno == EAGAIN || errno == EWOULDBLOCK){
                 continue;
             }else{
+                fcntl(fd,F_SETFL,oldFlags);
                 return -1;
             }
         }
@@ -272,7 +278,7 @@ int Utils::Writen(int fd,const char *buff,int num){
         writesum += thiswrite;
         ptr += thiswrite;
     }
-    //这个是传入的直接是指针，所以可以直接返回
-    //指针已经被更新了
+
+    fcntl(fd,F_SETFL,oldFlags);
     return writesum;
 }
