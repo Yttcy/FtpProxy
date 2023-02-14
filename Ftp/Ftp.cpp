@@ -71,10 +71,13 @@ void Ftp::FtpEvent(int sockfd) {
     client->epoll_ = next_thread->GetEpoll();
     next_thread->AddAsyncEventHandle(std::move(ctpCmdEvent));
 
-    auto timeNode = TimeNode::create(client,5000);
+    //设置定时器
+    auto func = [capture0 = client->GetClientPtr()](){
+        capture0->HandleTimeout();
+    };
+    auto timeNode = TimeNode::create(10000,func);
     client->timeout_ = timeNode;
     client->epoll_->AddTimer(timeNode);
-
 
     PROXY_LOG_INFO("new client coming!!!");
 }

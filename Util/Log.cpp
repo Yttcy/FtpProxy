@@ -7,7 +7,6 @@
 #include <cstdarg>
 #include <cstring>
 
-
 #include "Log.h"
 
 #define PROXY_LOG_TAG "proxy-print"
@@ -70,11 +69,4 @@ __attribute__((unused)) void Proxy_SetLogLevel(int level)
 {
     s_Proxy_LoggerImpl.level = level;
 }
-
-
-
-
-
-
-
 

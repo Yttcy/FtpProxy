@@ -8,45 +8,46 @@
 #include <memory>
 #include <deque>
 #include <queue>
+#include <functional>
+#include <map>
 
 #include "Utils.h"
 class Client;
+class TimeManager;
 
-class TimeNode:public shared_ptr_only<TimeNode>{
-
+typedef std::function<void(void)> TimeoutFunc;
+class TimeNode:public shared_ptr_only<TimeNode>,
+public std::enable_shared_from_this<TimeNode>{
     friend class shared_ptr_only<TimeNode>;
-    TimeNode(std::shared_ptr<Client> http,int timeout);
+    TimeNode(int timeout,TimeoutFunc&& func);
 public:
-    ~TimeNode();
+    virtual ~TimeNode();
     void Update(int timeout);
     bool IsTimeout() const;
-    long GetExpTime() const;
+    long long GetExpTime() const;
+    void SetExpTime(long long expTime);
     void HandleTimeout();
+    void SetTimeManager(std::shared_ptr<TimeManager>& timer);
 
 private:
-    long expiredtime_; //ms为单位
-    std::shared_ptr<Client> spClient;
+    long long expiredtime_; //ms为单位
+    TimeoutFunc func_;
+    std::weak_ptr<TimeManager> timeManager_; //防止循环引用
 };
 
-struct TimeCmp{
-    bool operator()(std::shared_ptr<TimeNode> &a,std::shared_ptr<TimeNode> &b)const {
-        return a->GetExpTime() > b->GetExpTime();
-    }
-};
 
 //优先队列存储定时器
 class TimeManager{
     typedef std::shared_ptr<TimeNode> SPTimeNode;
 private:
-    //用优先队列来管理定时任务
-    std::priority_queue<SPTimeNode,std::vector<SPTimeNode>,TimeCmp> timeQueue_;
+    std::multimap<long long,std::shared_ptr<TimeNode>> timeQueue_;
 public:
     TimeManager();
-    void AddTimeNode(SPTimeNode& node);
+    void AddTimeNode(const SPTimeNode& node);
     void HandleExpiredEvents();
+    void UpdateTimeNode(const std::shared_ptr<TimeNode>&,int timeout);
+    long long GetMinExpTime();
 };
-
-
 
 
 #endif //FTPPROXY_TIME_H

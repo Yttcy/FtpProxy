@@ -23,11 +23,16 @@ ptsDataSocket_(-1)
 
 };
 
+Client::~Client() {
+    PROXY_LOG_INFO("destroy client");
+}
+
 std::shared_ptr<Client> Client::GetClientPtr(){
     return shared_from_this();
 }
 
 //这是客户端有命令到达
+//当客户端关闭的时候，需要将此客户端的定时任务也给关闭掉
 void Client::CtpCmdReadCb(int sockfd){
 
     char buff[BUFFSIZE] = {0};
@@ -40,6 +45,12 @@ void Client::CtpCmdReadCb(int sockfd){
         CloseSocket(ctpCmdSocket_);
         CloseSocket(ptsCmdSocket_);
         CloseSocket(pListenDataSocket_);
+
+        //关闭定时任务
+        auto timeNode = timeout_.lock();
+        if(timeNode != nullptr){
+            timeNode->Update(0);
+        }
 
         status_ = STATUS_DISCONNECTED;
         return;
@@ -86,6 +97,12 @@ void Client::PtsCmdReadCb(int sockfd){
         CloseSocket(ctpCmdSocket_);
         CloseSocket(ptsCmdSocket_);
         CloseSocket(pListenDataSocket_);
+
+        //关闭定时任务
+        auto timeNode = timeout_.lock();
+        if(timeNode != nullptr){
+            timeNode->Update(0);
+        }
 
         status_ = STATUS_DISCONNECTED;
         return;
@@ -237,6 +254,7 @@ void Client::HandleTimeout() {
 
 int Client::ClientCmdHandle(char *cmd,char *param){
     //如果是客户端开启主动模式的命令
+
     char buff[BUFFSIZE];
     bzero(buff,BUFFSIZE);
     int targetSocket = ptsCmdSocket_;
@@ -418,7 +436,8 @@ void Client::ProxyHandleData(const std::shared_ptr<SerializeProtoData>& serializ
     Data data = serializeProtoData->GetData();
 
     //收到了数据，更新一下超时时间
-    timeout_->Update(CLIENT_TIMEOUT);
+    auto timeNode = timeout_.lock();
+    timeNode->Update(CLIENT_TIMEOUT);
 
     //如果是客户端
     if(magic == MAGIC_CLIENT){

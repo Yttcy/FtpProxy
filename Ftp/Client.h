@@ -26,8 +26,8 @@ class Client :public std::enable_shared_from_this<Client>,
     friend class shared_ptr_only<Client>;
 private:
     explicit Client();
-
 public:
+    virtual ~Client();
     std::shared_ptr<Client> GetClientPtr();
 
     void CtpCmdReadCb(int sockfd); //客户端到代理服务器的控制连接回调
@@ -49,11 +49,13 @@ private:
 private:
     int Authenticated();
     int CloseSocket(int &sockfd);
+
+
 public:
     std::string userName_;
     std::string pass_;
 
-    std::shared_ptr<TimeNode> timeout_; //超时
+    std::weak_ptr<TimeNode> timeout_; //防止循环引用
     int status_{};
 
     int ctpCmdSocket_{};

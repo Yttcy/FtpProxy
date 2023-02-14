@@ -39,8 +39,8 @@
 //读缓冲区最大大小
 #define BUFFSIZE 1024
 
-//客户端超时时间,五分钟
-#define CLIENT_TIMEOUT 300 * 1000
+//客户端超时时间,两分钟
+#define CLIENT_TIMEOUT 120 * 1000
 
 #define EPOLL_MAX_FD 1024
 #define EPOLL_TIMEOUT 60 * 1000

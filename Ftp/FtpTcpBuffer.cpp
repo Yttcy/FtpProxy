@@ -69,12 +69,10 @@ bool FtpTcpBuffer::JudgeStatusPart(){
 
 
 int FtpTcpBuffer::JudgeStatus() {
-
-    auto position = std::find(buffer_.begin(),buffer_.end(),'\n');
+    auto position = std::find(buffer_.begin()+index_,buffer_.end(),'\n');
     if(position == buffer_.begin() || *(position-1) != '\r'){
         position = buffer_.end();
     }
-
     if(position == buffer_.end()){
         return -1;
     }else if(position - buffer_.begin() > 3 && JudgeStatusPart()){  //如果多行内容只是的某一行\r\n

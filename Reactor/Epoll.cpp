@@ -9,10 +9,10 @@
 #include "Event.h"
 #include "Log.h"
 #include "PublicParameters.h"
-#include <Client.h>
 
 Epoll::Epoll():
 epollFd_(epoll_create(10)),
+timeManager_(std::make_shared<TimeManager>()),
 eventhandle_(),
 transHandle_(),
 socketNum_(0)
@@ -71,9 +71,10 @@ int Epoll::DelEvent(int sockfd) {
 
 void Epoll::Dispatch(){
 
+    long long epollTimeout = EPOLL_TIMEOUT;
     do{
         epoll_event retEvent[EPOLL_MAX_FD+1];
-        int nReady = epoll_wait(epollFd_,retEvent,EPOLL_MAX_FD+1,EPOLL_TIMEOUT);
+        int nReady = epoll_wait(epollFd_,retEvent,EPOLL_MAX_FD+1,epollTimeout);
 
 
         do{
@@ -113,7 +114,8 @@ void Epoll::Dispatch(){
         }while(false);
 
         //处理超时任务
-        timeManager_.HandleExpiredEvents();
+        timeManager_->HandleExpiredEvents();
+        epollTimeout = timeManager_->GetMinExpTime();
 
     }while(true);
 
@@ -133,5 +135,6 @@ void Epoll::AddAsyncTransHandle(Trans &&trans) {
 }
 
 void Epoll::AddTimer(std::shared_ptr<TimeNode>& node) {
-    timeManager_.AddTimeNode(node);
+    node->SetTimeManager(timeManager_);
+    timeManager_->AddTimeNode(node);
 }
