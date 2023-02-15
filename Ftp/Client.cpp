@@ -476,6 +476,9 @@ int Client::Authenticated() {
     //没找到就先使用默认的IP地址
     if(position == std::string::npos){
         serverIp_ = "127.0.0.1";
+        if(userName_ != "ftpuser" || pass_ != "qasa55567"){
+            return -1;
+        }
         return 0;
     }
     std::string ip(userName_.begin()+position+1,userName_.end());

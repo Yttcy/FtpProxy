@@ -70,7 +70,7 @@ void TimeManager::UpdateTimeNode(const std::shared_ptr<TimeNode>& timeNode,int t
     for(;iter != timeQueue_.end();++iter){
         if(iter->first == timeNode->GetExpTime()){
             if(iter->second == timeNode){
-                //删除超时任务,直接返回，不存在迭代器失效问题
+                //删除超时任务,直接返回
                 if(timeout == 0){
                     timeQueue_.erase(iter);
                     return;

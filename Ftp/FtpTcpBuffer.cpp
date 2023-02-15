@@ -13,8 +13,8 @@ index_(0)
 
 }
 
-//这里会不会有点慢
-FtpTcpBuffer& FtpTcpBuffer::operator+=(char *buff) {
+//这里会不会有点慢,算了，先慢着吧
+FtpTcpBuffer& FtpTcpBuffer::operator += (char *buff) {
     while(*buff){
         buffer_.emplace_back(*buff);
         ++buff;
@@ -22,9 +22,9 @@ FtpTcpBuffer& FtpTcpBuffer::operator+=(char *buff) {
     return *this;
 }
 
-int FtpTcpBuffer::JudgeCmd() {
+int FtpTcpBuffer::JudgeCmd(){
     int length = buffer_.size();
-    for(size_t i = index_; i < length; ++i ){
+    for(size_t i = index_; i < length; ++i){
         if(buffer_[i] == '\n'){
             if(i > 0 && buffer_[i-1] == '\r'){
                 index_ = i+1 ;

@@ -18,8 +18,6 @@ class FtpTcpBuffer;
 class TimeNode;
 
 
-//一个客户端为一个超时单位，但是客户端的生命周期也被Event管理着
-//补个超时，421 Timeout
 typedef std::function<void(int)> Function;
 class Client :public std::enable_shared_from_this<Client>,
         public shared_ptr_only<Client>{
@@ -49,8 +47,6 @@ private:
 private:
     int Authenticated();
     int CloseSocket(int &sockfd);
-
-
 public:
     std::string userName_;
     std::string pass_;
@@ -89,7 +85,5 @@ public:
 
     //这个client对应在那个线程中运行
     std::shared_ptr<MyThread> thread_;
-
-
 };
 #endif //FTP_PROXY_CLIENT_H

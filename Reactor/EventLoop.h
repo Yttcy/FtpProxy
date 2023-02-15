@@ -22,6 +22,8 @@ public:
 
     void Start(); //事件环开始轮询
 
+    void Stop();
+
     int AddEvent(std::unique_ptr<Event> event);
 
     int DelEvent(int sockfd);
