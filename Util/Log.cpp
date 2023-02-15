@@ -44,7 +44,8 @@ void ProxyLogCommonFn(const char* p, const char* level, const char* file, long l
 void Proxy_Log(int level, const char *file,long line, const char *format, ...)
 {
 
-    if(s_Proxy_LoggerImpl.level > level) return;
+    if(s_Proxy_LoggerImpl.level > level)
+        return;
     va_list args;
     va_start(args, format);
     if(level == PROXY_LOG_LEVEL_DEBUG){

@@ -1,8 +1,6 @@
 //
 // Created by tomatoo on 1/5/23.
 //
-#include <functional>
-
 #include "MyThreadPool.h"
 #include "MyThread.h"
 

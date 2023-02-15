@@ -45,6 +45,8 @@ void Client::CtpCmdReadCb(int sockfd){
         CloseSocket(ctpCmdSocket_);
         CloseSocket(ptsCmdSocket_);
         CloseSocket(pListenDataSocket_);
+        CloseSocket(ctpDataSocket_);
+        CloseSocket(ptsDataSocket_);
 
         //关闭定时任务
         auto timeNode = timeout_.lock();
@@ -93,10 +95,11 @@ void Client::PtsCmdReadCb(int sockfd){
     if(n <= 0){
         PROXY_LOG_WARN("server[%d] close the cmd connect!!!",sockfd);
 
-
         CloseSocket(ctpCmdSocket_);
         CloseSocket(ptsCmdSocket_);
         CloseSocket(pListenDataSocket_);
+        CloseSocket(ctpDataSocket_);
+        CloseSocket(ptsDataSocket_);
 
         //关闭定时任务
         auto timeNode = timeout_.lock();
@@ -319,7 +322,13 @@ int Client::ClientCmdHandle(char *cmd,char *param){
         reply = "221 Goodbye.\r\n";
         targetSocket = ctpCmdSocket_;
         Utils::Writen(targetSocket,reply.c_str(),reply.length());
+
+        //删除任务和定时任务
         epoll_->DelEvent(ctpCmdSocket_);
+        auto timeNode = timeout_.lock();
+        if(timeNode != nullptr){
+            timeNode->Update(0);
+        }
         close(ctpCmdSocket_);
         return 0;
     }else{

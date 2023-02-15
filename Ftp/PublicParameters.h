@@ -22,7 +22,6 @@
 
 
 //定义客户端的状态
-
 #define STATUS_DISCONNECTED 0
 #define STATUS_CONNECTED 1
 #define STATUS_USER_INPUTTED 2
