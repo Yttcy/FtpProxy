@@ -75,7 +75,7 @@ void Ftp::FtpEvent(int sockfd) {
     auto func = [capture0 = client->GetClientPtr()](){
         capture0->HandleTimeout();
     };
-    auto timeNode = TimeNode::create(10000,func);
+    auto timeNode = TimeNode::create(CLIENT_TIMEOUT,func);
     client->timeout_ = timeNode;
     client->epoll_->AddTimer(timeNode);
 

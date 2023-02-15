@@ -145,6 +145,11 @@ void Client::ProxyListenDataReadCb(int sockfd) {
     std::unique_ptr<Event> clientToProxyDataSocketEvent;
     std::unique_ptr<Event> proxyToServerDataSocketEvent;
 
+    if(status_ >= STATUS_DATA_CONNECTED){
+        CloseSocket(ctpDataSocket_);
+        CloseSocket(ptsDataSocket_);
+    }
+
     if(pasv_mode == 1){ //被动模式
         int clientToProxyDataSocket = Utils::AcceptSocket(sockfd,nullptr,nullptr);        //client <-> proxy
         ctpDataSocket_ = clientToProxyDataSocket;
@@ -177,6 +182,7 @@ void Client::ProxyListenDataReadCb(int sockfd) {
         PROXY_LOG_FATAL("unknown pasv_mode!!!");
     }
 
+    status_ = STATUS_DATA_CONNECTED;
 
     epoll_->AddEvent(std::move(clientToProxyDataSocketEvent));
     epoll_->AddEvent(std::move(proxyToServerDataSocketEvent));
@@ -347,6 +353,11 @@ int Client::ClientCmdHandle(char *cmd,char *param){
     if(strcmp(cmd,CMD_PORT) == 0){
         lastCmd_ = CMD_PORT;
         pasv_mode = 2;
+
+        if(status_ >= STATUS_PROXYDATA_LISTEN){
+            CloseSocket(pListenDataSocket_);
+        }
+
         //在这儿应该让proxyListenDataSocket监听任意端口,也就是等待服务器通过端口号20连接过来
         int proxyListenDataSocket = Utils::BindAndListenSocket(0); //开启proxyListenDataSocket、bind（）、listen操作
         status_ = STATUS_PROXYDATA_LISTEN;
@@ -385,6 +396,11 @@ int Client::ServerStatusHandle(char *status,char *param){
     if(lastCmd_ == CMD_PASV){
         if(strcmp(status,"227") == 0){
             pasv_mode = 1;
+
+            if(status_ >= STATUS_PROXYDATA_LISTEN){
+                CloseSocket(pListenDataSocket_);
+            }
+
             int proxyListenDataSocket = Utils::BindAndListenSocket(0); //开启proxyListenDataSocket、bind（）、listen操作
             status_ = STATUS_PROXYDATA_LISTEN;
             pListenDataSocket_ = proxyListenDataSocket;

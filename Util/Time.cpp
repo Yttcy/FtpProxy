@@ -99,7 +99,7 @@ void TimeManager::UpdateTimeNode(const std::shared_ptr<TimeNode>& timeNode,int t
     }
 }
 
-long long TimeManager::GetMinExpTime() {
+long long TimeManager::GetMinExpTime(){
     long long ret = EPOLL_TIMEOUT;
 
     struct timespec ts{};

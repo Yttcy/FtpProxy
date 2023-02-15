@@ -32,8 +32,7 @@ int FtpTcpBuffer::JudgeCmd(){
             }
         }
     }
-    index_ = length ;
-
+    index_ = length;
     return -1;
 }
 
@@ -68,7 +67,7 @@ bool FtpTcpBuffer::JudgeStatusPart(){
 }
 
 
-int FtpTcpBuffer::JudgeStatus() {
+int FtpTcpBuffer::JudgeStatus(){
     auto position = std::find(buffer_.begin()+index_,buffer_.end(),'\n');
     if(position == buffer_.begin() || *(position-1) != '\r'){
         position = buffer_.end();
