@@ -22,7 +22,7 @@ public std::enable_shared_from_this<TimeNode>{
     TimeNode(int timeout,TimeoutFunc&& func);
 public:
     virtual ~TimeNode();
-    void Update(int timeout);
+    void Update(int timeout); //如果timeout为0，删除定时任务
     bool IsTimeout() const;
     long long GetExpTime() const;
     void SetExpTime(long long expTime);

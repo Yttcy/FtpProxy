@@ -145,10 +145,6 @@ void Client::ProxyListenDataReadCb(int sockfd) {
     std::unique_ptr<Event> clientToProxyDataSocketEvent;
     std::unique_ptr<Event> proxyToServerDataSocketEvent;
 
-    if(status_ >= STATUS_DATA_CONNECTED){
-        CloseSocket(ctpDataSocket_);
-        CloseSocket(ptsDataSocket_);
-    }
 
     if(pasv_mode == 1){ //被动模式
         int clientToProxyDataSocket = Utils::AcceptSocket(sockfd,nullptr,nullptr);        //client <-> proxy
@@ -182,8 +178,6 @@ void Client::ProxyListenDataReadCb(int sockfd) {
         PROXY_LOG_FATAL("unknown pasv_mode!!!");
     }
 
-    status_ = STATUS_DATA_CONNECTED;
-
     epoll_->AddEvent(std::move(clientToProxyDataSocketEvent));
     epoll_->AddEvent(std::move(proxyToServerDataSocketEvent));
     PROXY_LOG_INFO("data connecting established");
@@ -194,6 +188,7 @@ void Client::CtpDataReadCb(int sockfd){
     char buff[BUFFSIZE] = {0};
     int n = Utils::Readn(sockfd,buff,BUFFSIZE);
     if(n <= 0){
+        CloseSocket(pListenDataSocket_);
         CloseSocket(ctpDataSocket_);
         CloseSocket(ptsDataSocket_);
 
@@ -220,6 +215,7 @@ void Client::PtsDataReadCb(int sockfd){
     if(n <= 0){
         PROXY_LOG_WARN("server[%d] close the data socket",ptsDataSocket_);
 
+        CloseSocket(pListenDataSocket_);
         CloseSocket(ctpDataSocket_);
         CloseSocket(ptsDataSocket_);
 
@@ -356,6 +352,9 @@ int Client::ClientCmdHandle(char *cmd,char *param){
 
         if(status_ >= STATUS_PROXYDATA_LISTEN){
             CloseSocket(pListenDataSocket_);
+            CloseSocket(ctpDataSocket_);
+            CloseSocket(ptsDataSocket_);
+            PROXY_LOG_DEBUG("close the socket channel");
         }
 
         //在这儿应该让proxyListenDataSocket监听任意端口,也就是等待服务器通过端口号20连接过来
@@ -399,6 +398,8 @@ int Client::ServerStatusHandle(char *status,char *param){
 
             if(status_ >= STATUS_PROXYDATA_LISTEN){
                 CloseSocket(pListenDataSocket_);
+                CloseSocket(ctpDataSocket_);
+                CloseSocket(ptsDataSocket_);
             }
 
             int proxyListenDataSocket = Utils::BindAndListenSocket(0); //开启proxyListenDataSocket、bind（）、listen操作
