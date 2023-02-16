@@ -14,7 +14,7 @@ epoll_(std::make_shared<Epoll>())
 {
     pipe2(ioPipe_,O_NONBLOCK);
     auto event = Event::create(ioPipe_[0]);
-    event->SetReadHandle([this](auto && PH1) { OnNotify(std::forward<decltype(PH1)>(PH1)); });
+    event->SetReadHandle([](auto && PH1) { OnNotify(std::forward<decltype(PH1)>(PH1)); });
     epoll_->AddEvent(std::move(event));
     PROXY_LOG_INFO("ioPipe r[%d],w[%d]",ioPipe_[0],ioPipe_[1]);
 }

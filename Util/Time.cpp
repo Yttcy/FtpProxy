@@ -7,18 +7,37 @@
 #include "Time.h"
 #include "Log.h"
 #include "PublicParameters.h"
+#include "Epoll.h"
 
-TimeNode::TimeNode(int timeout,TimeoutFunc&& func):
-expiredtime_(0),
-func_(func)
+
+TimeNode::TimeNode(std::shared_ptr<Epoll> &epoll):
+epoll_(epoll),
+expiredtime_(0)
 {
-    struct timespec ts{};
-    clock_gettime(CLOCK_MONOTONIC,&ts);
-    expiredtime_ = ((ts.tv_sec  * 1000) + (ts.tv_nsec / 1000000)) + timeout;
+
 }
 
 TimeNode::~TimeNode(){
     PROXY_LOG_INFO("destroy time node");
+}
+
+void TimeNode::Start(TimeoutFunc &&func, int timeout) {
+    func_ = func;
+
+    struct timespec ts{};
+    clock_gettime(CLOCK_MONOTONIC,&ts);
+    expiredtime_ = (ts.tv_sec * 1000) + (ts.tv_nsec / 1000000) + timeout;
+    auto epoll = epoll_.lock();
+    if(epoll != nullptr){
+        auto thisPtr = shared_from_this();
+        iter_ = epoll->AddTimer(thisPtr);
+    }
+}
+
+void TimeNode::Stop(){
+    std::move(func_);
+    func_ = nullptr;
+    Update(0);
 }
 
 //更新之后要在TimeManager中更新以下，有可能不同定时事件超时时间是相同的
@@ -51,52 +70,39 @@ long long TimeNode::GetExpTime()const {
     return expiredtime_;
 }
 
+auto TimeNode::GetIter() {
+    return iter_;
+}
+
 void TimeNode::SetExpTime(long long expTime) {
     expiredtime_ = expTime;
+}
+
+void TimeNode::SetIter(std::set<std::shared_ptr<TimeNode>>::iterator &iter) {
+    iter_ = iter;
 }
 
 TimeManager::TimeManager() = default;
 
 
-void TimeManager::AddTimeNode(const std::shared_ptr<TimeNode>& node){
-    timeQueue_.insert({node->GetExpTime(),node});
+NodeIter TimeManager::AddTimeNode(const std::shared_ptr<TimeNode>& node){
+    return timeQueue_.insert(node).first;
 }
 
 void TimeManager::UpdateTimeNode(const std::shared_ptr<TimeNode>& timeNode,int timeout) {
 
-    long long oldTime = timeNode->GetExpTime();
-    auto iter = timeQueue_.lower_bound(oldTime);
-
-    for(;iter != timeQueue_.end();++iter){
-        if(iter->first == timeNode->GetExpTime()){
-            if(iter->second == timeNode){
-                //删除超时任务,直接返回
-                if(timeout == 0){
-                    timeQueue_.erase(iter);
-                    return;
-                }
-                //删除了 重新添加
-                break;
-            }
-            //超时时间相同，但是超时事件不同
-            continue;
-        }else{
-            iter = timeQueue_.end();
-            break;
-        }
-    }
-
-
-    if(iter != timeQueue_.end()){
-        timeQueue_.erase(iter);
-
+    if(timeout > 0){
+        timeQueue_.erase(timeNode->GetIter());
         struct timespec ts{};
         clock_gettime(CLOCK_MONOTONIC,&ts);
-        long long expiredtime = ((ts.tv_sec * 1000) + (ts.tv_nsec / 1000000)) + timeout;
-
+        long long expiredtime = (ts.tv_sec * 1000) + (ts.tv_nsec / 1000000) + timeout;
         timeNode->SetExpTime(expiredtime);
-        timeQueue_.insert({timeNode->GetExpTime(), timeNode});
+        auto iter = timeQueue_.insert(timeNode);
+        timeNode->SetIter(iter.first);
+    }else{
+        timeQueue_.erase(timeNode->GetIter());
     }
+
 }
 
 long long TimeManager::GetMinExpTime(){
@@ -107,7 +113,8 @@ long long TimeManager::GetMinExpTime(){
     long long timenow = (ts.tv_sec * 1000) + (ts.tv_nsec / 1000000);
 
     if(timeQueue_.begin() != timeQueue_.end()){
-        ret = timeQueue_.begin()->first;
+        auto minNode = *(timeQueue_.begin());
+        ret = minNode->GetExpTime();
     }else{
         //没有定时任务，直接返回
         return ret;
@@ -118,11 +125,10 @@ long long TimeManager::GetMinExpTime(){
 
 void TimeManager::HandleExpiredEvents(){
     for(auto iter = timeQueue_.begin();iter != timeQueue_.end();++iter){
-        if(iter->second->IsTimeout()){
-            iter->second->HandleTimeout();
+        if((*iter)->IsTimeout()){
             auto temp = iter;
             ++iter;
-            timeQueue_.erase(temp);
+            (*temp)->HandleTimeout();
         }else{
             break;
         }

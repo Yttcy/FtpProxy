@@ -51,7 +51,7 @@ public:
     std::string userName_;
     std::string pass_;
 
-    std::weak_ptr<TimeNode> timeout_; //防止循环引用
+    std::shared_ptr<TimeNode> timeout_; //防止循环引用
     int status_{};
 
     int ctpCmdSocket_{};

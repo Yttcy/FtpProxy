@@ -75,9 +75,9 @@ void Ftp::FtpEvent(int sockfd) {
     auto func = [capture0 = client->GetClientPtr()](){
         capture0->HandleTimeout();
     };
-    auto timeNode = TimeNode::create(CLIENT_TIMEOUT,func);
+    auto timeNode = TimeNode::create(client->epoll_);
     client->timeout_ = timeNode;
-    client->epoll_->AddTimer(timeNode);
+    client->timeout_->Start(func,CLIENT_TIMEOUT);
 
     PROXY_LOG_INFO("new client coming!!!");
 }

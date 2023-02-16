@@ -49,10 +49,7 @@ void Client::CtpCmdReadCb(int sockfd){
         CloseSocket(ptsDataSocket_);
 
         //关闭定时任务
-        auto timeNode = timeout_.lock();
-        if(timeNode != nullptr){
-            timeNode->Update(0);
-        }
+        timeout_->Stop();
 
         status_ = STATUS_DISCONNECTED;
         return;
@@ -102,10 +99,7 @@ void Client::PtsCmdReadCb(int sockfd){
         CloseSocket(ptsDataSocket_);
 
         //关闭定时任务
-        auto timeNode = timeout_.lock();
-        if(timeNode != nullptr){
-            timeNode->Update(0);
-        }
+        timeout_->Stop();
 
         status_ = STATUS_DISCONNECTED;
         return;
@@ -169,6 +163,7 @@ void Client::ProxyListenDataReadCb(int sockfd) {
         if(getpeername(ctpCmdSocket_,(struct sockaddr *)&cliaddr,&clilen) < 0){
             perror("getpeername() failed: ");
         }
+
         cliaddr.sin_port = htons(clientDataPort_);
         int clientToProxyDataSocket = Utils::ConnectToServerByAddr(cliaddr); //client <-> proxy
         ctpDataSocket_ = clientToProxyDataSocket;
@@ -208,7 +203,6 @@ void Client::CtpDataReadCb(int sockfd){
     }
 }
 
-//这里有点问题，服务端断开连接的同时，客户端也会断开连接，这样的话，close没有关系，但是epoll清除就会有问题，暂时先不管
 void Client::PtsDataReadCb(int sockfd){
     char buff[BUFFSIZE] = {0};
     int n = Utils::Readn(sockfd,buff,BUFFSIZE);
@@ -252,6 +246,8 @@ void Client::HandleTimeout() {
     CloseSocket(pListenDataSocket_);
     CloseSocket(ctpDataSocket_);
     CloseSocket(ptsDataSocket_);
+
+    timeout_->Stop();
 
     status_ = STATUS_DISCONNECTED;
 }
@@ -327,10 +323,7 @@ int Client::ClientCmdHandle(char *cmd,char *param){
 
         //删除任务和定时任务
         epoll_->DelEvent(ctpCmdSocket_);
-        auto timeNode = timeout_.lock();
-        if(timeNode != nullptr){
-            timeNode->Update(0);
-        }
+        timeout_->Stop();
         close(ctpCmdSocket_);
         return 0;
     }else{
@@ -462,8 +455,7 @@ void Client::ProxyHandleData(const std::shared_ptr<SerializeProtoData>& serializ
     Data data = serializeProtoData->GetData();
 
     //收到了数据，更新一下超时时间
-    auto timeNode = timeout_.lock();
-    timeNode->Update(CLIENT_TIMEOUT);
+    timeout_->Update(CLIENT_TIMEOUT);
 
     //如果是客户端
     if(magic == MAGIC_CLIENT){

@@ -45,7 +45,7 @@ public:
 
     void AddAsyncTransHandle(Trans&& trans);
 
-    void AddTimer(std::shared_ptr<TimeNode>& node);
+    NodeIter AddTimer(std::shared_ptr<TimeNode>& node);
 
 private:
     std::mutex lock_;

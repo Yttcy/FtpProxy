@@ -134,7 +134,7 @@ void Epoll::AddAsyncTransHandle(Trans &&trans) {
     transHandle_.push_back(trans);
 }
 
-void Epoll::AddTimer(std::shared_ptr<TimeNode>& node) {
+NodeIter Epoll::AddTimer(std::shared_ptr<TimeNode>& node) {
     node->SetTimeManager(timeManager_);
-    timeManager_->AddTimeNode(node);
+    return timeManager_->AddTimeNode(node);
 }
