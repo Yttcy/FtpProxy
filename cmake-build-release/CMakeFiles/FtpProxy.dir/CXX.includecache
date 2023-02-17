@@ -1,0 +1,28 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+../Util/Log.h
+string
+-
+
+/home/tomatoo/CLionProjects/FtpProxy/Ftp/FtpTcpBuffer.cpp
+FtpTcpBuffer.h
+/home/tomatoo/CLionProjects/FtpProxy/Ftp/FtpTcpBuffer.h
+Log.h
+/home/tomatoo/CLionProjects/FtpProxy/Ftp/Log.h
+algorithm
+-
+memory.h
+-
+
+/home/tomatoo/CLionProjects/FtpProxy/Ftp/FtpTcpBuffer.h
+string
+-
+vector
+-
+

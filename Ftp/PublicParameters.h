@@ -28,7 +28,6 @@
 #define STATUS_PASS_AUTHENTICATED 3
 #define STATUS_PROXYDATA_LISTEN 4
 
-
 //最大的客户端命令长度，需要+1
 #define COMMAND_MAX_LENGTH 5
 
@@ -77,10 +76,6 @@
 #define CMD_STAT "STAT"
 #define CMD_HELP "HELP"
 #define CMD_NOOP "NOOP"
-
-
-
-
 
 /*******************************************************************************/
 

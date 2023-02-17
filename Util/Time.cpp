@@ -43,7 +43,9 @@ void TimeNode::Stop(){
 //更新之后要在TimeManager中更新以下，有可能不同定时事件超时时间是相同的
 void TimeNode::Update(int timeout) {
     auto timeManager = timeManager_.lock();
-    timeManager->UpdateTimeNode(shared_from_this(),timeout);
+    if(timeManager != nullptr){
+        timeManager->UpdateTimeNode(shared_from_this(),timeout);
+    }
 }
 
 bool TimeNode::IsTimeout() const{
@@ -84,6 +86,10 @@ void TimeNode::SetIter(std::set<std::shared_ptr<TimeNode>>::iterator &iter) {
 
 TimeManager::TimeManager() = default;
 
+TimeManager::~TimeManager() {
+    PROXY_LOG_WARN("destroy timeManager");
+}
+
 
 NodeIter TimeManager::AddTimeNode(const std::shared_ptr<TimeNode>& node){
     return timeQueue_.insert(node).first;
@@ -101,6 +107,8 @@ void TimeManager::UpdateTimeNode(const std::shared_ptr<TimeNode>& timeNode,int t
         timeNode->SetIter(iter.first);
     }else{
         timeQueue_.erase(timeNode->GetIter());
+        auto end = timeQueue_.end();
+        timeNode->SetIter(end);
     }
 
 }

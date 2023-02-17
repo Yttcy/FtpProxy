@@ -48,6 +48,8 @@ void Proxy_Log(int level, const char *file,long line, const char *format, ...)
         return;
     va_list args;
     va_start(args, format);
+
+
     if(level == PROXY_LOG_LEVEL_DEBUG){
         ProxyLogCommonFn(PROXY_LOG_TAG, YT_LOG_LEVEL_TAG[0], file, line, format, args, nullptr);
     }else if(level == PROXY_LOG_LEVEL_INFO){

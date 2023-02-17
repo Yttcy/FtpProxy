@@ -68,10 +68,8 @@ void Ftp::FtpEvent(int sockfd) {
     auto next_thread = loop_->GetNextThread();
     client->thread_ = next_thread;
 
-    client->epoll_ = next_thread->GetEpoll();
-    next_thread->AddAsyncEventHandle(std::move(ctpCmdEvent));
 
-    //设置定时器
+    //设置定时器，应该在分发之前完成定时器的创建，我去
     auto func = [capture0 = client->GetClientPtr()](){
         capture0->HandleTimeout();
     };
@@ -79,5 +77,10 @@ void Ftp::FtpEvent(int sockfd) {
     client->timeout_ = timeNode;
     client->timeout_->Start(func,CLIENT_TIMEOUT);
 
-    PROXY_LOG_INFO("new client coming!!!");
+    client->epoll_ = next_thread->GetEpoll();
+    next_thread->AddAsyncEventHandle(std::move(ctpCmdEvent));
+
+    static int num = 1;
+    PROXY_LOG_INFO("new client coming!!! sum : %d",num);
+    ++num;
 }

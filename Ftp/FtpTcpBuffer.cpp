@@ -3,7 +3,9 @@
 //
 
 #include "FtpTcpBuffer.h"
+#include "Log.h"
 #include <algorithm>
+#include <memory.h>
 
 
 FtpTcpBuffer::FtpTcpBuffer():
@@ -15,10 +17,12 @@ index_(0)
 
 //这里会不会有点慢,算了，先慢着吧
 FtpTcpBuffer& FtpTcpBuffer::operator += (char *buff) {
-    while(*buff){
-        buffer_.emplace_back(*buff);
-        ++buff;
-    }
+    size_t len = strlen(buff);
+
+    size_t originSize = buffer_.size();
+    buffer_.resize(originSize + len);
+    memcpy(buffer_.data() + originSize, buff, len);
+
     return *this;
 }
 
@@ -35,8 +39,6 @@ int FtpTcpBuffer::JudgeCmd(){
     index_ = length;
     return -1;
 }
-
-
 
 std::string FtpTcpBuffer::GetCompleteCmd(){
     auto end = buffer_.begin() + index_;
@@ -70,6 +72,7 @@ bool FtpTcpBuffer::JudgeStatusPart(){
 int FtpTcpBuffer::JudgeStatus(){
     auto position = std::find(buffer_.begin()+index_,buffer_.end(),'\n');
     if(position == buffer_.begin() || *(position-1) != '\r'){
+        index_ = position - buffer_.begin() + 1;
         position = buffer_.end();
     }
     if(position == buffer_.end()){
@@ -80,5 +83,11 @@ int FtpTcpBuffer::JudgeStatus(){
     }else{
         index_ = position - buffer_.begin()+ 1;
         return JudgeStatus();
+    }
+}
+
+void FtpTcpBuffer::Print() {
+    for(auto i:buffer_){
+        printf("%c",i);
     }
 }

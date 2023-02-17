@@ -76,7 +76,6 @@ void Epoll::Dispatch(){
         epoll_event retEvent[EPOLL_MAX_FD+1];
         int nReady = epoll_wait(epollFd_,retEvent,EPOLL_MAX_FD+1,epollTimeout);
 
-
         do{
             if(nReady < 0){
                 PROXY_LOG_ERROR("epoll_wait error: %s",strerror(errno));

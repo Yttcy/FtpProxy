@@ -6,7 +6,7 @@
 #define FTP_PROXY_MYTHREADPOOL_H
 
 #include <thread>
-#define THREAD_NUM 4
+#define THREAD_NUM 8
 
 class MyThread;
 

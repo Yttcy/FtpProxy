@@ -111,7 +111,9 @@ void Client::PtsCmdReadCb(int sockfd){
 
         statusBuffer_ += buff;
         int ret = statusBuffer_.JudgeStatus();
+
         if(ret < 0){
+            statusBuffer_.Print();
             return;
         }
         std::string res = statusBuffer_.GetCompleteStatus();
@@ -294,11 +296,6 @@ int Client::ClientCmdHandle(char *cmd,char *param){
             Utils::GetSockLocalIp(proxyToServerCmdSocket,proxyIp_);
             thread_->AddAsyncEventHandle(std::move(ptsCmdEvent));
 
-            sprintf(buff,"USER %s\r\n",userName_.c_str());
-            targetSocket = ptsCmdSocket_;
-            status_ = STATUS_PASS_AUTHENTICATED;
-            reply = buff;
-            Utils::Writen(targetSocket,reply.c_str(),reply.length());
             return 0;
         }else{
             //如果认证失败了，就直接发给客户端530
@@ -372,6 +369,11 @@ int Client::ClientCmdHandle(char *cmd,char *param){
         DoNothingForCmd(buff,cmd,param);
     }
 
+    if(targetSocket < 0){
+        PROXY_LOG_WARN("socket < 0");
+        return 0;
+    }
+    assert(targetSocket != -1);
     PROXY_LOG_DEBUG("send to server:%s",buff);
     Utils::Writen(targetSocket,buff,strlen(buff));
     return 0;
@@ -416,19 +418,27 @@ int Client::ServerStatusHandle(char *status,char *param){
             targetSocket = ptsCmdSocket_;
             sprintf(buff,"PASS %s\r\n",pass_.c_str());
         }
+
         if(strcmp(status,"230") == 0){
             targetSocket = ctpCmdSocket_;
             sprintf(buff,"%s%s\r\n",status,param);
         }
         //这个代表代理连接服务器成功了
         if(strcmp(status,"220") == 0){
-            return 0;
+
+            sprintf(buff,"USER %s\r\n",userName_.c_str());
+            targetSocket = ptsCmdSocket_;
+            status_ = STATUS_PASS_AUTHENTICATED;
         }
     }else{
         targetSocket = ctpCmdSocket_;
         sprintf(buff,"%s%s\r\n",status,param);
     }
 
+    if(targetSocket < 0){
+        PROXY_LOG_WARN("socket < 0");
+        return 0;
+    }
     assert(targetSocket > 0);
     PROXY_LOG_DEBUG("send to client:%s",buff);
     Utils::Writen(targetSocket,buff,strlen(buff));

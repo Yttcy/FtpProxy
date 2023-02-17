@@ -51,6 +51,7 @@ private:
     std::set<std::shared_ptr<TimeNode>> timeQueue_;
 public:
     TimeManager();
+    virtual ~TimeManager();
     NodeIter AddTimeNode(const SPTimeNode& node);
     void HandleExpiredEvents();
     void UpdateTimeNode(const std::shared_ptr<TimeNode>&,int timeout);

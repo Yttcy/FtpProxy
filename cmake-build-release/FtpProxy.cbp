@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6"/>
+	<Project>
+		<Option title="FtpProxy"/>
+		<Option makefile_is_custom="1"/>
+		<Option compiler="gcc"/>
+		<Option virtualFolders="CMake Files\;"/>
+		<Build>
+			<Target title="all">
+				<Option working_dir="/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j8 -f &quot;/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release/Makefile&quot;  VERBOSE=1 all"/>
+					<CompileFile command="/usr/bin/make -j8 -f &quot;/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j8 -f &quot;/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j8 -f &quot;/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="rebuild_cache">
+				<Option working_dir="/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j8 -f &quot;/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release/Makefile&quot;  VERBOSE=1 rebuild_cache"/>
+					<CompileFile command="/usr/bin/make -j8 -f &quot;/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j8 -f &quot;/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j8 -f &quot;/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="edit_cache">
+				<Option working_dir="/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j8 -f &quot;/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release/Makefile&quot;  VERBOSE=1 edit_cache"/>
+					<CompileFile command="/usr/bin/make -j8 -f &quot;/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j8 -f &quot;/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j8 -f &quot;/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="FtpProxy">
+				<Option output="/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release/FtpProxy" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add directory="/home/tomatoo/CLionProjects/FtpProxy/."/>
+					<Add directory="/home/tomatoo/CLionProjects/FtpProxy/Ftp"/>
+					<Add directory="/home/tomatoo/CLionProjects/FtpProxy/Thread"/>
+					<Add directory="/home/tomatoo/CLionProjects/FtpProxy/Util"/>
+					<Add directory="/home/tomatoo/CLionProjects/FtpProxy/Reactor"/>
+					<Add directory="/usr/include/c++/9"/>
+					<Add directory="/usr/include/x86_64-linux-gnu/c++/9"/>
+					<Add directory="/usr/include/c++/9/backward"/>
+					<Add directory="/usr/lib/gcc/x86_64-linux-gnu/9/include"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="/usr/include/x86_64-linux-gnu"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j8 -f &quot;/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release/Makefile&quot;  VERBOSE=1 FtpProxy"/>
+					<CompileFile command="/usr/bin/make -j8 -f &quot;/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j8 -f &quot;/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j8 -f &quot;/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="FtpProxy/fast">
+				<Option output="/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release/FtpProxy" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add directory="/home/tomatoo/CLionProjects/FtpProxy/."/>
+					<Add directory="/home/tomatoo/CLionProjects/FtpProxy/Ftp"/>
+					<Add directory="/home/tomatoo/CLionProjects/FtpProxy/Thread"/>
+					<Add directory="/home/tomatoo/CLionProjects/FtpProxy/Util"/>
+					<Add directory="/home/tomatoo/CLionProjects/FtpProxy/Reactor"/>
+					<Add directory="/usr/include/c++/9"/>
+					<Add directory="/usr/include/x86_64-linux-gnu/c++/9"/>
+					<Add directory="/usr/include/c++/9/backward"/>
+					<Add directory="/usr/lib/gcc/x86_64-linux-gnu/9/include"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="/usr/include/x86_64-linux-gnu"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j8 -f &quot;/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release/Makefile&quot;  VERBOSE=1 FtpProxy/fast"/>
+					<CompileFile command="/usr/bin/make -j8 -f &quot;/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j8 -f &quot;/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j8 -f &quot;/home/tomatoo/CLionProjects/FtpProxy/cmake-build-release/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+		</Build>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Ftp/Client.cpp">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Ftp/Client.h">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Ftp/Ftp.cpp">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Ftp/Ftp.h">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Ftp/FtpTcpBuffer.cpp">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Ftp/FtpTcpBuffer.h">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Ftp/Proto.cpp">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Ftp/Proto.h">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Reactor/Epoll.cpp">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Reactor/Epoll.h">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Reactor/Event.cpp">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Reactor/Event.h">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Reactor/EventLoop.cpp">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Reactor/EventLoop.h">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Thread/MyThread.cpp">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Thread/MyThread.h">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Thread/MyThreadPool.cpp">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Thread/MyThreadPool.h">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Util/Log.cpp">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Util/Log.h">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Util/Time.cpp">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Util/Time.h">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Util/Utils.cpp">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/Util/Utils.h">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/main.cpp">
+			<Option target="FtpProxy"/>
+		</Unit>
+		<Unit filename="/home/tomatoo/CLionProjects/FtpProxy/CMakeLists.txt">
+			<Option virtualFolder="CMake Files\"/>
+		</Unit>
+	</Project>
+</CodeBlocks_project_file>

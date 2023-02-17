@@ -5,7 +5,7 @@
 
 int main(){
 
-    Proxy_SetLogLevel(PROXY_LOG_LEVEL_DEBUG);
+    Proxy_SetLogLevel(PROXY_LOG_LEVEL_NONE);
     //初始化事件环
     auto loop = std::make_shared<EventLoop>();
 

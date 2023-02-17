@@ -23,6 +23,8 @@ public:
 
     int JudgeStatus();
 
+    void Print();
+
 private:
     bool JudgeStatusPart();
 
