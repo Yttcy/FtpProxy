@@ -34,4 +34,6 @@
 #added by Yttcy
 /cmake-build-debug
 
+/cmake-build-release
+
 /.idea
