@@ -88,11 +88,13 @@ void Utils::SplitCmd(char *buff, char *cmd, const char *param)
     int i;
     char *p;
 
+    char *savePtr = nullptr;
     //这里就是如果最后的两个char类型是/r 或者 是/n 那么就把这个弄为0
     while((p = &buff[strlen(buff) - 1]) && (*p == '\r' || *p == '\n'))
         *p = 0;
 
-    char *cmd_temp = strtok(buff," ");
+    //改为线程安全的strtok_r，不然会有多线程的问题
+    char *cmd_temp = strtok_r(buff," ",&savePtr);
 
     //如果客户端传来的命令长度大于4，就先将命令设置位WHAT返回，后续在处理
     if(strlen(cmd_temp) > 4){
@@ -102,7 +104,7 @@ void Utils::SplitCmd(char *buff, char *cmd, const char *param)
         memcpy(cmd,cmd_temp,strlen(cmd_temp));
     }
 
-    char *param_temp = strtok(nullptr,"\0");
+    char *param_temp = strtok_r(nullptr,"\0",&savePtr);
     if(param_temp != nullptr){
         memcpy((void*)param,param_temp,strlen(param_temp));
     }
